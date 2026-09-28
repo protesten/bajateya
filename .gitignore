@@ -30,3 +30,8 @@ Thumbs.db
 
 # Ficheros temporales del multi-model-team (/reasoning)
 .mmt/
+
+# APK/artefactos de distribución (pueden llevar la idApp embebida): NUNCA al repo
+dist/
+*.apk
+*.aab

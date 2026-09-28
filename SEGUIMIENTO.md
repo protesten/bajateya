@@ -26,6 +26,7 @@ Leyenda: ✅ hecho · 🚧 en curso · ⬜ pendiente
 | **Mapa (paradas + trazado del viaje)** | ✅ implementado (APK ok) |
 | **Endurecimiento del motor de alarma** | ✅ (6 tests, APK ok) |
 | **Fiabilidad (guía batería/OEM) + reanudación** | ✅ (APK ok) |
+| **APK de prueba (release universal) + guía** | ✅ entregado |
 | Favoritos locales | ⬜ |
 | Planificador de rutas | ⬜ |
 | Multidioma | ⬜ |
@@ -266,6 +267,20 @@ Leyenda: ✅ hecho · 🚧 en curso · ⬜ pendiente
 - **Pendiente relacionado:** geofencing nativo iOS; sonido propio; validación en
   hardware real; reanudación automática tras reinicio del teléfono (hoy es
   manual, para no sorprender al usuario).
+
+### 16. APK de prueba + guía de instalación ✅
+- **Build:** `flutter build apk --release` **universal** (arm64, armeabi-v7a, x86),
+  ~29 MB (incluye la BD de 16 MB). Firmado con clave debug (suficiente para
+  sideload personal). Se inyectan `TITSA_ID_APP` y `DATA_MANIFEST_URL` por
+  `--dart-define`; el APK va en `dist/` (IGNORADO por git: lleva la idApp
+  embebida, nunca al repo público).
+- **Permiso añadido:** `USE_FULL_SCREEN_INTENT` (Android 14+ para el aviso a
+  pantalla completa).
+- **Entregado** al usuario para probar en su móvil; guía en
+  `docs/08-instalar-y-probar.md` (instalar, dejar la alarma fiable, probar tiempo
+  real y la alarma de bajada real).
+- **Ahora le toca al usuario:** validar la alarma en hardware con la pantalla
+  apagada (el paso que no se puede hacer desde el entorno de desarrollo).
 
 ---
 
