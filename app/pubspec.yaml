@@ -1,0 +1,36 @@
+name: bajate_aqui
+description: "Guaguas de Tenerife: información al viajero con alarma de bajada."
+publish_to: 'none'
+version: 0.1.0+1
+
+environment:
+  sdk: ^3.6.0
+
+dependencies:
+  flutter:
+    sdk: flutter
+  cupertino_icons: ^1.0.8
+  http: ^1.2.2            # llamadas al web service SAE (tiempo real)
+  xml: ^6.5.0            # parseo del XML de llegadas
+  sqflite: ^2.3.3        # base de datos GTFS local
+  path: ^1.9.0
+  path_provider: ^2.1.4  # ruta de almacenamiento para copiar la BD
+  geolocator: ^13.0.1    # GPS para la alarma de bajada
+  flutter_foreground_task: ^8.10.0   # servicio en primer plano (seguimiento en 2º plano)
+  flutter_local_notifications: ^18.0.1  # notificación/aviso de la alarma
+  audioplayers: ^6.1.0   # sonido de alarma
+  vibration: ^2.0.0      # vibración del aviso
+  crypto: ^3.0.5         # SHA-256 para verificar la BD descargada
+  shared_preferences: ^2.3.2  # preferencias (solo-WiFi, última comprobación)
+  connectivity_plus: ^6.0.5   # saber si hay WiFi o datos móviles
+
+dev_dependencies:
+  flutter_test:
+    sdk: flutter
+  flutter_lints: ^5.0.0
+
+flutter:
+  uses-material-design: true
+  assets:
+    - assets/guaguas.sqlite
+    - assets/manifest.json

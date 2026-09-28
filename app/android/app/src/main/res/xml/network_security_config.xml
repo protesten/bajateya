@@ -1,0 +1,8 @@
+<?xml version="1.0" encoding="utf-8"?>
+<network-security-config>
+    <!-- El web service SAE de TITSA (tiempo real) solo está en HTTP.
+         Permitimos texto en claro exclusivamente para ese dominio. -->
+    <domain-config cleartextTrafficPermitted="true">
+        <domain includeSubdomains="true">apps.titsa.com</domain>
+    </domain-config>
+</network-security-config>

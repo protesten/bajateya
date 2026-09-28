@@ -1,0 +1,60 @@
+name: Actualizar datos GTFS
+
+# Comprueba a diario si el Cabildo publicó un GTFS nuevo; si cambió, reconstruye
+# la base SQLite y publica el .sqlite + manifest.json como release "gtfs".
+on:
+  schedule:
+    - cron: '30 5 * * *'   # 05:30 UTC cada día
+  workflow_dispatch: {}      # ejecución manual
+
+permissions:
+  contents: write            # crear/actualizar releases y volcar el estado
+
+jobs:
+  update:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      - name: ¿Cambió el GTFS en origen?
+        id: check
+        run: |
+          OUT=$(python tools/check_source_update.py)
+          echo "$OUT"
+          echo "$OUT" | grep -q '^changed=' && echo "$OUT" | grep '^changed=' >> "$GITHUB_OUTPUT" || true
+
+      - name: Reconstruir base de datos
+        if: contains(steps.check.outputs.changed, 'true')
+        env:
+          HOSTING_BASE: https://github.com/${{ github.repository }}/releases/download/gtfs
+        run: |
+          python tools/build_gtfs_db.py \
+            --out data/guaguas.sqlite \
+            --manifest data/manifest.json \
+            --hosting-base "$HOSTING_BASE"
+          VERSION=$(python -c "import json;print(json.load(open('data/manifest.json'))['version'])")
+          cp data/guaguas.sqlite "data/guaguas-$VERSION.sqlite"
+          echo "VERSION=$VERSION" >> "$GITHUB_ENV"
+
+      - name: Publicar release "gtfs"
+        if: contains(steps.check.outputs.changed, 'true')
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: gtfs
+          name: Datos GTFS
+          files: |
+            data/guaguas-${{ env.VERSION }}.sqlite
+            data/manifest.json
+
+      - name: Guardar estado de origen
+        if: contains(steps.check.outputs.changed, 'true')
+        run: |
+          git config user.name "gtfs-bot"
+          git config user.email "gtfs-bot@users.noreply.github.com"
+          git add data/source_state.json
+          git commit -m "chore(gtfs): actualizar estado de origen a ${{ env.VERSION }}" || true
+          git push || true

@@ -1,0 +1,29 @@
+# Secrets / config real (NUNCA subir)
+.env
+config/secrets.env
+*.secret
+
+# Datos GTFS descargados y base de datos generada
+data/gtfs_raw/
+data/*.zip
+data/*.sqlite
+data/*.db
+
+# Flutter / Dart
+app/.dart_tool/
+app/.flutter-plugins
+app/.flutter-plugins-dependencies
+app/build/
+app/.idea/
+app/*.iml
+app/android/.gradle/
+app/ios/Pods/
+
+# Python
+tools/__pycache__/
+tools/.venv/
+*.pyc
+
+# SO
+.DS_Store
+Thumbs.db
