@@ -24,6 +24,7 @@ Leyenda: ✅ hecho · 🚧 en curso · ⬜ pendiente
 | **Repositorio en GitHub + CI de datos** | ✅ subido (protesten/bajateya) |
 | **Primera release de datos publicada** | ✅ release `gtfs` (verificada) |
 | **Mapa (paradas + trazado del viaje)** | ✅ implementado (APK ok) |
+| **Endurecimiento del motor de alarma** | ✅ (6 tests, APK ok) |
 | Favoritos locales | ⬜ |
 | Planificador de rutas | ⬜ |
 | Multidioma | ⬜ |
@@ -215,6 +216,34 @@ Leyenda: ✅ hecho · 🚧 en curso · ⬜ pendiente
 - **Pendiente producción:** el tile server público de OSM tiene política de uso
   restrictiva; para publicar conviene un proveedor de teselas propio o de pago
   (p. ej. MapTiler/Protomaps) — cambiar `osmTileUrl` en `alarm_entry.dart`.
+
+### 14. Endurecimiento del motor de alarma ✅ (según revisión multi-modelo)
+- **Fuera de ruta:** `projectOnShape` devuelve también el **desvío perpendicular**;
+  si supera el umbral (150 m + precisión GPS) se marca `offRoute`, no se avanza el
+  progreso (no se fía) y la UI/notificación avisan "posición incierta, ¿sentido
+  correcto?". Ataca sentido equivocado / otra guagua / desvío.
+- **Ventana de progreso:** la proyección se restringe a una ventana alrededor del
+  progreso previo (evita saltos a tramos lejanos en trazados que se cruzan,
+  circulares o con ramales compartidos). El **primer fix** localiza en todo el
+  trazado (permite subir a mitad de trayecto).
+- **Disparo defensivo (avisar de más):** dispara con la 1ª condición que se cumpla
+  (paradas / metros / minutos) **o** por **red de seguridad geodésica** (radio de
+  ~120 m al destino en línea recta), que funciona aunque el map matching falle.
+- **ETA fiable:** solo se da ETA con velocidad > 0,8 m/s y ≥3 muestras (evita que
+  un atasco infle el ETA y retrase un aviso por tiempo); los avisos por
+  distancia/paradas no dependen del ETA.
+- **Dead reckoning en túnel/sombra:** `predictWithoutFix` avanza la posición según
+  la última velocidad (máx. 90 s) y dispara si la estimación alcanza el umbral;
+  el servicio lo llama con un temporizador cuando el GPS lleva >12 s sin fix.
+- **Muestreo GPS adaptativo (batería):** el servicio ajusta precisión/filtro por
+  banda de distancia (far: medium/50 m · mid: high/20 m · near: best/5 m) y
+  reinicia el stream al cambiar de banda.
+- **Tests:** 6 casos y todos pasan (2 paradas antes, llegada, fuera de ruta, red
+  de seguridad, subir a mitad, dead reckoning). `flutter analyze` limpio, APK ok.
+- **Pendiente de esta parte (necesita hardware o publicación):** guía in-app de
+  exención de batería por fabricante (OEM killers); geofencing nativo para iOS;
+  persistencia/reanudación del estado tras muerte del servicio; sonido de alarma
+  propio; validación real en móvil con pantalla apagada.
 
 ---
 

@@ -23,6 +23,7 @@ class _TrackingPageState extends State<TrackingPage> {
   int? _etaSeconds;
   bool _arrived = false;
   bool _ringing = false;
+  bool _offRoute = false;
   ll.LatLng? _me;
 
   @override
@@ -40,6 +41,7 @@ class _TrackingPageState extends State<TrackingPage> {
           _metersRemaining = (data['metersRemaining'] as num?)?.toDouble();
           _etaSeconds = data['etaSeconds'] as int?;
           _arrived = (data['arrived'] as bool?) ?? false;
+          _offRoute = (data['offRoute'] as bool?) ?? false;
           final lat = (data['lat'] as num?)?.toDouble();
           final lon = (data['lon'] as num?)?.toDouble();
           if (lat != null && lon != null) _me = ll.LatLng(lat, lon);
@@ -91,6 +93,21 @@ class _TrackingPageState extends State<TrackingPage> {
                       child: Text('¡Prepárate para bajar!',
                           style: TextStyle(
                               fontSize: 20, fontWeight: FontWeight.bold)),
+                    ),
+                  ]),
+                ),
+              ),
+            if (_offRoute && !_ringing && !_arrived)
+              Card(
+                color: Theme.of(context).colorScheme.tertiaryContainer,
+                child: const Padding(
+                  padding: EdgeInsets.all(12),
+                  child: Row(children: [
+                    Icon(Icons.help_outline),
+                    SizedBox(width: 8),
+                    Expanded(
+                      child: Text(
+                          'Posición incierta. Comprueba que vas en el sentido correcto.'),
                     ),
                   ]),
                 ),

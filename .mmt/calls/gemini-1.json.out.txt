@@ -1,0 +1,90 @@
+### 1. Evaluación Crítica de lo Construido#### A. Puntos Fuertes Técnicos y Arquitectónicos
+* **Compresión y Estrategia Offline-First:** La reducción del GTFS a SQLite (~16 MB) mediante compresión por patrones de servicio (de 51k trips a 3.9k patrones) y simplificación Douglas-Peucker (82% de reducción de nodos) es una decisión de ingeniería sobresaliente. Permite ejecución 100% offline, cero latencia en consultas y elimina costes de backend propio.
+* **Ciclo CI/CD de Datos Autónomo:** El desacoplamiento del ciclo de vida de los datos respecto al binario de la app mediante GitHub Releases + SHA-256 + swap atómico garantiza resiliencia contra corrupción y protege el ancho de banda del usuario (consulta ligera de manifest + control WiFi).
+* **Proyección sobre Polilínea vs. Distancia Euclídea:** En la orografía montañosa de Tenerife (barrancos, curvas de herradura en Anaga o Teno, autopistas TF-1/TF-5 con desniveles), medir la distancia lineal produce falsos positivos catastróficos. La proyección ortogonal sobre el trazado real es la única aproximación viable.
+* **Aislamiento en Isolate + Foreground Service:** Ejecutar el tracking y la lógica de disparo en un `isolate` independiente garantiza que la UI no bloquee el muestreo GPS ni la notificación persistente.---#### B. Debilidades, Puntos Ciegos y Riesgos Técnicos##### 1. Motor de Alarma y Casos Límite en Carretera
+* **Túneles y Cañones Urbanos/Orográficos:** En tramos sin señal GPS (túneles de la TF-5/TF-1, viaductos o zonas de sombra en barrancos), el GPS devolverá datos obsoletos o de baja precisión (`accuracy > 100m`).
+  * *Riesgo:* Si la última posición proyectada se congela antes del geofence de aviso y recupera señal tras rebasar la parada, la alarma no saltará o saltará tarde.
+  * *Corrección:* Implementar un estimador por *dead reckoning* temporal (si hay pérdida de señal a velocidad $>0$, avanzar la posición teórica según la última velocidad conocida durante un máximo de $N$ segundos).
+* **Desvíos Temporales de Ruta (Obras / Fiestas):** Si la guagua toma un desvío que se aleja $>50\text{ m}$ del trazado predefinido, la proyección sobre la polilínea puede romperse (proyectando al punto más cercano de un tramo posterior o anterior erróneamente).
+  * *Corrección:* Fallback a distancia geodésica directa a la parada de destino si el error de proyección ortogonal supera un umbral crítico.
+* **EMA de Velocidad en Retenciones:** Las paradas prolongadas en semáforos o atascos (muy comunes en los accesos a Santa Cruz/La Laguna) hunden el cálculo de velocidad de la media móvil exponencial (EMA), inflando artificialmente el ETA en minutos y pudiendo retrasar avisos basados en "tiempo restante".##### 2. Batería, Sistema Operativo y Doze Mode
+* **Sampling GPS Constante:** Un muestreo de alta precisión continuo en un viaje de 60–90 min (ej. Línea 110/010 de Santa Cruz a Costa Adeje) puede consumir entre un 8% y un 15% de batería.
+  * *Optimización:* **Adaptive Geolocation Polling**. Si faltan $>5\text{ km}$, fijar `interval = 30s` y `desiredAccuracy = medium`. A medida que la distancia proyectada cae a $<1.5\text{ km}$, escalar a `interval = 3s` y `desiredAccuracy = high`.
+* **Restricciones de Fabricantes (OEM Killers):** En terminales Xiaomi (MIUI/HyperOS), Huawei o Samsung, los servicios en primer plano pueden ser congelados si el usuario no configura manualmente el ahorro de batería sin restricciones.
+  * *Riesgo:* La alarma no sonará si el sistema suspende el isolate.
+  * *Acción:* Integrar la librería `auto_start_flutter` o alertas específicas in-app para guiar al usuario a desactivar la optimización de batería.##### 3. Privacidad
+* **Privacidad Excelente por Diseño:** Al procesarse el matching GPS en local (on-device) sin enviar telemetría a servidores de terceros, el impacto en RGPD/LOPD es mínimo. No requiere consentimiento de rastreo de ubicación bajo ATT (iOS) si no se transmite fuera del dispositivo.##### 4. Aspectos Legales, Políticas de Tiendas y API SAE
+* **Uso del Web Service Privado de TITSA (apps.titsa.com):**
+  * *Riesgo Crítico:* El endpoint XML es un servicio interno no documentado. La clave de desarrollo no otorga derechos comerciales. TITSA puede revocar la clave, rotar parámetros o bloquear el User-Agent sin previo aviso.
+  * *Mitigación:* Redirigir las peticiones de tiempo real a través de un proxy/edge worker propio (Cloudflare Workers) en lugar de consultar directamente desde la app. Esto permite actualizar endpoints o claves en remoto sin forzar una actualización del binario en las tiendas.
+* **Tráfico HTTP Cleartext:** Android 9+ y iOS bloquean por defecto conexiones `http://` no seguras. Forzar `usesCleartextTraffic` en Android / `NSAppTransportSecurity` en iOS incrementa el escrutinio en el App Store Review y expone peticiones a ataques MitM en redes WiFi públicas.
+* **Propiedad Intelectual y Marca:** El uso de nombres, logotipos oficiales de TITSA o marcas registradas puede motivar el rechazo en Google Play / App Store o un requerimiento de cese. Debe incluirse
+e un disclaimer explícito y prominente: *"Aplicación no oficial desarrollada de forma independiente sin vinculación con TITSA ni con el Cabildo de Tenerife"*.
+* **OpenStreetMap Tile Usage Policy:** Confirmado: usar `tile.openstreetmap.org` en producción viola la política de uso razonable de la fundación OSM y resultará en el baneo de la IP/User-Agent de la 
+ app.
+
+---
+
+### 2. Evaluación de la Propuesta y Enfoque de Producto
+
+#### Puntos Fuertes
+* **Propuesta de Valor Clara y Diferenciada:** Resuelve un dolor real que ni Google Maps ni la app oficial de TITSA resuelven con suficiente precisión: la ansiedad de pasarse de parada en trayectos la
+argos, viajes nocturnos o para usuarios con pérdida de visión/atención.
+* **Utilidad Dual (Residentes vs. Turistas):** Cubre dos arquetipos: el residente habitual que quiere dormir en el trayecto interurbano y el turista que no reconoce el entorno visual desde la ventanil
+lla.
+
+#### Debilidades de Producto
+* **Fricción de Activación (UX On-Boarding en Parada):** Si para activar la alarma el usuario necesita abrir la app, buscar la línea, elegir el sentido y seleccionar la parada de destino en una lista 
+ de 40 elementos mientras camina o sube al bus, la fricción provocará abandono.
+* **Riesgo de Funcionalidad Aislada (*Feature vs. App*):** Si la app solo sirve como alarma pero carece de consulta rápida de saldo o cálculo de rutas, el usuario abrirá Google Maps para planificar y 
+ solorecurrirá a "Bájate Aquí" de forma esporádica.
+
+---
+
+### 3. Nuevas Ideas de Alto Impacto y Esfuerzo Razonable
+
+####A. Funcionalidades Core y Experiencia de Alarma
+1. **Empaquetado de Teselas Vectoriales Offline con Protomaps (PMTiles):**
+   * *Concepto:* Tenerife completa en teselas vectoriales OpenStreetMap (estilo simplificado) ocupa solo **~35–50 MB**.
+   * *Implementación:* Distribuir un archivo `.pmtiles` junto con la base SQLite o descargable bajo demanda. Renderizar con `maplibre_gl` o `flutter_map_pmtiles`.
+   * *Impacto:* Mapa 100% offline, cero costes de servidores de mapas y resolución definitiva de la violación de ToS de OSM.
+2.**Modo "Sube y Olvídate" (Auto-detección de Línea y Sentido):**
+   * *Concepto:* El usuario solo busca y selecciona su parada de destino final. La app analiza las líneas que pasan por la parada cercana donde se encuentra el usuario y, al detectar aceleración $>20\
+\text{km/h}$ a lo largo de un trazado coincidente, auto-selecciona la línea activa.
+   **Impacto:* Reduce la configuración de la alarma a **un solo toque**.
+3. **Selector de Parada por Mapa Táctil / "Paradas Próximas":**
+   * *Concepto:* Al seleccionar una línea, abrir un minimapa interactivo centrado en la posición actual con los pines de las siguientes paradas numeradas en orden de recorrido.
+4. **Patrones de Vibración Háptica Progresiva:**
+   * *Concepto:* Al entrar en la penúltima parada: vibración suave doble (`HapticFeedback.mediumImpact()`). Al entrar en el radio final: patrón continuo e insistente tipo despertador (`alarm` audio st
+tream con anulación de modo silencio usando `audio_service`).
+5. **Aviso de "Botón de Solicitud de Parada":**
+   * *Concepto:* Configurar el aviso no solo para levantarse, sino calculando los metros exactos antes de la parada en los que el usuario debe pulsar el botón físico de la guagua (habitualmente 150–25
+50 m antes).
+
+#### B. Utilidades Prácticas para Tenerife
+6. **Detector de Transbordos Críticos (Guagua + Tranvía):**
+   * *Concepto:* Para líneas que conectan el Norte/Sur con los intercambiadores de Santa Cruz o La Laguna (ej. Líneas 015, 102, 110), incluir un aviso especial de "Llegando a Intercambiador" con indic
+cación del andén/parada del Tranvía de Tenerife o enlace siguiente.
+7. **"Compartir Estado de Llegada" (Botón de Enlace Rápido):**
+   * *Concepto:* Generar un mensaje preformateado para WhatsApp: *"Voy en la 110 hacia Los Cristianos, parada 'El Camisón'. Mi llegada estimada es a las 18:42"*. Cero infraestructura, alto valor socia
+al y viralidad orgánica.
+8. **Live Activities / Dynamic Island (iOS) y Notificación Enriquecida (Android):**
+   * *Concepto:* Mostrar una barra de progreso visual continua en la pantalla de bloqueo: `[●—————○] 4 paradas restantes · Est. 6 min` con botón de cancelación rápida de alarma sin desbloquear el disp
+positivo.
+9. **Modo Ahorro Extremo de Pantalla (OLED Pitch Black):**
+   * *Concepto:* Pantalla en negro total con solo texto en rojo tenue mostrando la parada siguiente y un botón de bloqueo táctil, permitiendo llevar el móvil en la mano o soporte sin consumo de pantal
+lla ni toques accidentales.
+
+---
+
+### Resumen de Priorización Técnica Recomendada
+
+| Prioridad | Tarea | Esfuerzo | Impacto |
+| :--- | :--- | :--- | :--- |
+| **P0 (Crítica)** | Proxy seguro (HTTPS) para el Web Service SAE de TITSA | Bajo | Mitiga bloqueos de red y rotura de claves |
+| **P0 (Crítica)** | Migrar teselas OSM a PMTiles offline (Tenerife ~40MB) | Medio | Elimina riesgo legal y habilita mapa offline real |
+| **P1 (Alta)** | Adaptive GPS Polling (escalado dinámico según distancia) | Bajo | Reduce consumo de batería un 50-70% |
+| **P1 (Alta)** | Manejo de pérdida de señal en túneles / fallback geodésico | Medio | Evita fallos de disparo de la alarma |
+| **P2 (Media)** | Auto-start / Exención de optimización de batería en Android | Bajo | Asegura que la alarma no muera en segundo plano |
+| **P2 (Media)** | Quick Share de ETA por WhatsApp | Bajo | Aporta valor inmediato con mínima complejidad |

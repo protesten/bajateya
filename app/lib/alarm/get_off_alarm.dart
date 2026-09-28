@@ -17,28 +17,65 @@ double haversineMeters(LatLng a, LatLng b) {
   return r * 2 * math.atan2(math.sqrt(s), math.sqrt(1 - s));
 }
 
-/// Proyecta [p] sobre la polilínea [shape] y devuelve la distancia (m)
-/// recorrida a lo largo del trazado hasta el punto proyectado más cercano.
-/// Si [minProgress] se indica, no devuelve un valor menor (evita retrocesos por
-/// ruido del GPS).
+/// Resultado de proyectar un punto sobre el trazado.
+class ShapeProjection {
+  final double progress; // distancia (m) recorrida a lo largo del trazado
+  final double offset; // distancia (m) perpendicular del punto al trazado
+  const ShapeProjection(this.progress, this.offset);
+}
+
+/// Proyecta [p] sobre la polilínea y devuelve solo la distancia recorrida (m).
+/// Utilidad para el preprocesado de datos (mide paradas a lo largo del trazado).
 double distanceAlongShape(List<LatLng> shape, LatLng p, {double minProgress = 0}) {
-  if (shape.length < 2) return minProgress;
+  final proj = projectOnShape(shape, p, minProgress: minProgress, window: double.infinity);
+  return math.max(minProgress, proj.progress);
+}
+
+/// Proyecta [p] sobre la polilínea restringiendo la búsqueda a una VENTANA
+/// alrededor de [minProgress]: acepta segmentos cuyo avance esté en
+/// [minProgress - backTol, minProgress + window]. Así, en trazados que se
+/// cruzan, circulares o con ramales compartidos, no "salta" a un tramo lejano.
+/// Devuelve el avance y el desvío perpendicular (para detectar fuera de ruta).
+ShapeProjection projectOnShape(
+  List<LatLng> shape,
+  LatLng p, {
+  double minProgress = 0,
+  double window = 600,
+  double backTol = 80,
+}) {
+  if (shape.length < 2) return ShapeProjection(minProgress, 0);
+  final lo = minProgress - backTol;
+  final hi = minProgress + window;
   double bestDist = double.infinity;
   double bestProgress = minProgress;
   double acc = 0;
+  bool foundInWindow = false;
   for (var i = 0; i < shape.length - 1; i++) {
     final a = shape[i], b = shape[i + 1];
     final segLen = haversineMeters(a, b);
-    final t = _projectOnSegment(p, a, b);
-    final foot = LatLng(a.lat + (b.lat - a.lat) * t, a.lon + (b.lon - a.lon) * t);
-    final d = haversineMeters(p, foot);
-    if (d < bestDist) {
-      bestDist = d;
-      bestProgress = acc + segLen * t;
+    final segEnd = acc + segLen;
+    // Descarta segmentos fuera de la ventana (salvo que aún no haya candidato).
+    final inWindow = segEnd >= lo && acc <= hi;
+    if (inWindow || !foundInWindow) {
+      final t = _projectOnSegment(p, a, b);
+      final foot =
+          LatLng(a.lat + (b.lat - a.lat) * t, a.lon + (b.lon - a.lon) * t);
+      final d = haversineMeters(p, foot);
+      final prog = acc + segLen * t;
+      if (inWindow) {
+        if (!foundInWindow || d < bestDist) {
+          bestDist = d;
+          bestProgress = prog;
+          foundInWindow = true;
+        }
+      } else if (!foundInWindow && d < bestDist) {
+        bestDist = d;
+        bestProgress = prog;
+      }
     }
-    acc += segLen;
+    acc = segEnd;
   }
-  return math.max(minProgress, bestProgress);
+  return ShapeProjection(bestProgress, bestDist);
 }
 
 double _projectOnSegment(LatLng p, LatLng a, LatLng b) {
@@ -82,9 +119,13 @@ class AlarmConfig {
 class AlarmStatus {
   final int stopsRemaining;
   final double metersRemaining;
-  final int? etaSeconds; // null si aún no hay velocidad estimada
+  final int? etaSeconds; // null si el ETA no es fiable
   final bool shouldRing;
   final bool arrived;
+
+  /// La posición está lejos del trazado (sentido equivocado, otra guagua,
+  /// desvío o error de proyección): las cuentas de paradas/metros no son fiables.
+  final bool offRoute;
 
   const AlarmStatus({
     required this.stopsRemaining,
@@ -92,6 +133,7 @@ class AlarmStatus {
     required this.etaSeconds,
     required this.shouldRing,
     required this.arrived,
+    required this.offRoute,
   });
 }
 
@@ -100,15 +142,29 @@ class AlarmStatus {
 /// Sigue la posición GPS proyectándola sobre el trazado del trayecto, calcula
 /// paradas y distancia que faltan hasta la parada de destino y decide cuándo
 /// avisar. Funciona sin conexión (solo GPS + datos GTFS locales).
+///
+/// Diseño defensivo: siempre sesga a avisar de más, nunca de menos.
+/// - Dispara con la primera condición que se cumpla (paradas / metros / minutos).
+/// - Red de seguridad geodésica: avisa al entrar en [safetyRadius] del destino,
+///   aunque el map matching falle.
+/// - Fuera de ruta: no avanza el progreso (no se fía), pero mantiene la red de
+///   seguridad por distancia directa al destino.
 class GetOffAlarm {
   final List<TripStop> stops; // ordenadas por distFromStart
   final int destIndex; // índice de la parada de bajada en [stops]
   final List<LatLng> shape; // polilínea del trazado (para proyectar la posición)
   final AlarmConfig config;
 
+  /// Radio (m) alrededor del destino que dispara la alarma como red de seguridad.
+  final double safetyRadius;
+
+  /// Desvío (m) del trazado por encima del cual se considera "fuera de ruta".
+  final double offRouteThreshold;
+
   double _lastProgress = 0; // distancia (m) recorrida sobre el trazado
   double? _speed; // m/s suavizado
   DateTime? _lastTime;
+  int _speedSamples = 0;
   bool _rang = false;
 
   GetOffAlarm({
@@ -116,38 +172,62 @@ class GetOffAlarm {
     required this.destIndex,
     required this.shape,
     required this.config,
+    this.safetyRadius = 120,
+    this.offRouteThreshold = 150,
   });
 
   double get _destDist => stops[destIndex].distFromStart;
+  LatLng get _destPos => stops[destIndex].pos;
 
   /// Alimenta una nueva medición de posición y devuelve el estado.
-  AlarmStatus update(LatLng pos, DateTime now) {
-    final progress = _projectOntoShape(pos);
+  ///
+  /// [accuracy] es la precisión estimada del GPS (m), si se conoce: cuanto peor,
+  /// más se ensancha el umbral de fuera de ruta y antes actúa la red de seguridad.
+  AlarmStatus update(LatLng pos, DateTime now, {double accuracy = 0}) {
+    // Primer fix: localiza en TODO el trazado (el usuario puede subir a mitad
+    // de trayecto). Después, ventana alrededor del progreso previo.
+    final proj = _lastTime == null
+        ? projectOnShape(shape, pos, minProgress: 0, window: double.infinity)
+        : projectOnShape(shape, pos, minProgress: _lastProgress);
+    final offRoute = proj.offset > (offRouteThreshold + accuracy);
+    if (_lastTime == null && !offRoute) _lastProgress = proj.progress;
 
-    // Velocidad suavizada (EMA) para el ETA.
-    if (_lastTime != null) {
-      final dt = now.difference(_lastTime!).inMilliseconds / 1000.0;
-      if (dt > 0.5) {
-        final v = (progress - _lastProgress) / dt;
-        if (v.isFinite && v >= 0) {
-          _speed = _speed == null ? v : 0.6 * _speed! + 0.4 * v;
+    // Solo avanzamos el progreso y estimamos velocidad si estamos EN ruta.
+    if (!offRoute) {
+      final progress = math.max(_lastProgress, proj.progress);
+      if (_lastTime != null) {
+        final dt = now.difference(_lastTime!).inMilliseconds / 1000.0;
+        if (dt > 0.5) {
+          final v = (progress - _lastProgress) / dt;
+          if (v.isFinite && v >= 0) {
+            _speed = _speed == null ? v : 0.6 * _speed! + 0.4 * v;
+            _speedSamples++;
+          }
         }
-        _lastProgress = progress;
-        _lastTime = now;
       }
-    } else {
       _lastProgress = progress;
       _lastTime = now;
     }
 
-    final metersRemaining = math.max(0.0, _destDist - progress);
-    final stopsRemaining = _stopsRemaining(progress);
-    final eta = (_speed != null && _speed! > 0.3)
-        ? (metersRemaining / _speed!).round()
-        : null;
+    final metersRemaining = math.max(0.0, _destDist - _lastProgress);
+    final stopsRemaining = _stopsRemaining(_lastProgress);
+    final geodesicToDest = haversineMeters(pos, _destPos);
 
-    final arrived = metersRemaining < 40; // ~40 m: prácticamente en la parada
-    final shouldRing = !_rang && (arrived || _triggerReached(stopsRemaining, metersRemaining, eta));
+    // ETA solo fiable con velocidad razonable y varias muestras (evita que un
+    // atasco/semáforo infle el ETA y retrase un aviso por tiempo).
+    final etaReliable = _speed != null && _speed! > 0.8 && _speedSamples >= 3;
+    final eta = etaReliable ? (metersRemaining / _speed!).round() : null;
+
+    // Llegada: por progreso sobre el trazado o por cercanía directa (red de
+    // seguridad que funciona incluso fuera de ruta).
+    final arrived =
+        (!offRoute && metersRemaining < 40) || geodesicToDest < (40 + accuracy);
+
+    final safetyNet = geodesicToDest <= (safetyRadius + accuracy);
+    final triggered = !offRoute &&
+        _triggerReached(stopsRemaining, metersRemaining, eta);
+
+    final shouldRing = !_rang && (arrived || safetyNet || triggered);
     if (shouldRing) _rang = true;
 
     return AlarmStatus(
@@ -156,7 +236,36 @@ class GetOffAlarm {
       etaSeconds: eta,
       shouldRing: shouldRing,
       arrived: arrived,
+      offRoute: offRoute,
     );
+  }
+
+  /// Evaluación sin nuevo fix de GPS (túnel / sombra): avanza la posición con
+  /// "dead reckoning" según la última velocidad conocida y comprueba si, según
+  /// esa estimación, ya tocaría avisar. Solo dispara la red de seguridad por
+  /// llegada estimada; nunca inventa un "fuera de ruta".
+  AlarmStatus? predictWithoutFix(DateTime now, {double maxSeconds = 90}) {
+    if (_rang || _lastTime == null || _speed == null) return null;
+    final dt = now.difference(_lastTime!).inMilliseconds / 1000.0;
+    if (dt <= 0 || dt > maxSeconds) return null;
+
+    final predicted = _lastProgress + _speed! * dt;
+    final metersRemaining = math.max(0.0, _destDist - predicted);
+    final stopsRemaining = _stopsRemaining(predicted);
+    final arrivedEst = metersRemaining < 40;
+    final triggered = _triggerReached(stopsRemaining, metersRemaining, null);
+    if (arrivedEst || triggered) {
+      _rang = true;
+      return AlarmStatus(
+        stopsRemaining: stopsRemaining,
+        metersRemaining: metersRemaining,
+        etaSeconds: null,
+        shouldRing: true,
+        arrived: arrivedEst,
+        offRoute: false,
+      );
+    }
+    return null;
   }
 
   bool _triggerReached(int stopsRem, double metersRem, int? eta) {
@@ -178,8 +287,4 @@ class GetOffAlarm {
     }
     return count;
   }
-
-  /// Proyecta la posición sobre el trazado y devuelve la distancia recorrida (m).
-  double _projectOntoShape(LatLng p) =>
-      distanceAlongShape(shape, p, minProgress: _lastProgress);
 }

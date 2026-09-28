@@ -91,6 +91,9 @@ class _TripTaskHandler extends TaskHandler {
   GetOffAlarm? _alarm;
   TripPlan? _plan;
   StreamSubscription<Position>? _gps;
+  Timer? _staleTimer;
+  DateTime? _lastFixAt;
+  String _band = 'mid';
   final FlutterLocalNotificationsPlugin _notif =
       FlutterLocalNotificationsPlugin();
   bool _rang = false;
@@ -108,29 +111,86 @@ class _TripTaskHandler extends TaskHandler {
     _plan = plan;
     _alarm = plan.buildAlarm();
 
+    _startGps('mid');
+    // Dead reckoning: si el GPS se congela (túnel/sombra), estimar el avance.
+    _staleTimer = Timer.periodic(const Duration(seconds: 8), (_) => _onStale());
+  }
+
+  /// Precisión y filtro de distancia según lo cerca que estemos del destino,
+  /// para ahorrar batería lejos y afinar en la recta final.
+  LocationSettings _settingsForBand(String band) {
+    switch (band) {
+      case 'near': // < 1,5 km
+        return const LocationSettings(
+            accuracy: LocationAccuracy.best, distanceFilter: 5);
+      case 'far': // > 3 km
+        return const LocationSettings(
+            accuracy: LocationAccuracy.medium, distanceFilter: 50);
+      default: // mid
+        return const LocationSettings(
+            accuracy: LocationAccuracy.high, distanceFilter: 20);
+    }
+  }
+
+  String _bandFor(double metersRemaining) => metersRemaining < 1500
+      ? 'near'
+      : (metersRemaining > 3000 ? 'far' : 'mid');
+
+  void _startGps(String band) {
+    _band = band;
+    _gps?.cancel();
     _gps = Geolocator.getPositionStream(
-      locationSettings: const LocationSettings(
-        accuracy: LocationAccuracy.high,
-        distanceFilter: 15, // metros entre actualizaciones
-      ),
+      locationSettings: _settingsForBand(band),
     ).listen(_onPosition);
+  }
+
+  void _onStale() {
+    final alarm = _alarm;
+    final plan = _plan;
+    if (alarm == null || plan == null || _rang) return;
+    if (_lastFixAt == null ||
+        DateTime.now().difference(_lastFixAt!) < const Duration(seconds: 12)) {
+      return; // el GPS sigue llegando; nada que estimar
+    }
+    final st = alarm.predictWithoutFix(DateTime.now());
+    FlutterForegroundTask.updateService(
+      notificationTitle: 'Línea ${plan.lineName} → ${plan.destination.name}',
+      notificationText: 'Señal GPS débil… siguiendo por estimación',
+    );
+    if (st != null && st.shouldRing && !_rang) {
+      _rang = true;
+      _ring(plan);
+    }
   }
 
   void _onPosition(Position pos) {
     final alarm = _alarm;
     final plan = _plan;
     if (alarm == null || plan == null) return;
+    _lastFixAt = DateTime.now();
 
-    final st = alarm.update(LatLng(pos.latitude, pos.longitude), DateTime.now());
+    final st = alarm.update(
+      LatLng(pos.latitude, pos.longitude),
+      DateTime.now(),
+      accuracy: pos.accuracy,
+    );
+
+    // Ajusta la cadencia del GPS a la distancia restante (ahorro de batería).
+    final band = _bandFor(st.metersRemaining);
+    if (band != _band) _startGps(band);
 
     // Actualiza la notificación persistente del viaje.
-    final eta = st.etaSeconds == null ? '' : ' · ~${(st.etaSeconds! / 60).ceil()} min';
+    final eta =
+        st.etaSeconds == null ? '' : ' · ~${(st.etaSeconds! / 60).ceil()} min';
+    final body = st.offRoute
+        ? 'Posición incierta (¿sentido correcto?)'
+        : st.arrived
+            ? 'Estás llegando a tu parada'
+            : 'Faltan ${st.stopsRemaining} paradas'
+                ' (${st.metersRemaining.round()} m)$eta';
     FlutterForegroundTask.updateService(
       notificationTitle: 'Línea ${plan.lineName} → ${plan.destination.name}',
-      notificationText: st.arrived
-          ? 'Estás llegando a tu parada'
-          : 'Faltan ${st.stopsRemaining} paradas'
-              ' (${st.metersRemaining.round()} m)$eta',
+      notificationText: body,
     );
 
     // Envía el estado a la UI (si la app está abierta).
@@ -140,6 +200,7 @@ class _TripTaskHandler extends TaskHandler {
       'metersRemaining': st.metersRemaining,
       'etaSeconds': st.etaSeconds,
       'arrived': st.arrived,
+      'offRoute': st.offRoute,
       'lat': pos.latitude,
       'lon': pos.longitude,
     });
@@ -150,6 +211,7 @@ class _TripTaskHandler extends TaskHandler {
     }
     if (st.arrived) {
       _gps?.cancel();
+      _staleTimer?.cancel();
     }
   }
 
@@ -190,11 +252,15 @@ class _TripTaskHandler extends TaskHandler {
 
   @override
   Future<void> onDestroy(DateTime timestamp) async {
+    _staleTimer?.cancel();
     await _gps?.cancel();
   }
 
   @override
   void onReceiveData(Object data) {
-    if (data == 'stop') _gps?.cancel();
+    if (data == 'stop') {
+      _staleTimer?.cancel();
+      _gps?.cancel();
+    }
   }
 }

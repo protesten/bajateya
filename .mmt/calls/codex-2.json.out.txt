@@ -1,0 +1,318 @@
+## 1. Evaluación de lo construido
+
+### Puntos fuertes
+
+- La propuesta técnica está alineada con la función principal: calcular el progreso sobre el trazado real es muy superior a usar distancia en línea recta, especialmente en Tenerife, con carreteras sinuosas, rutas que se cruzan y paradas geográficamente próximas.
+- La arquitectura offline-first reduce latencia, consumo de red y dependencia de terceros. Una SQLite de unos 16 MB es razonable.
+- La compresión por patrones y la simplificación de geometrías son buenas decisiones. Reducen mucho el tamaño sin trasladar complejidad ni coste computacional excesivo al móvil.
+- La actualización está bien diseñada: detección automática, consentimiento informado, tamaño visible, opción solo WiFi, verificación de integridad, sustitución atómica y control de compatibilidad mediante `min_app_version`.
+- Separar los datos estáticos GTFS del SAE en tiempo real evita atribuir al SAE capacidades que no tiene.
+- El servicio persistente y la notificación de progreso dan transparencia: el usuario puede comprobar que la alarma continúa activa.
+- La selección de destino únicamente entre las paradas posteriores reduce errores de configuración.
+- Que el repositorio, CI y pruebas sean reproducibles mejora la auditabilidad del proyecto.
+- En privacidad, el enfoque local es excelente: no parece necesario crear cuentas ni enviar recorridos o posiciones a un servidor propio.
+
+### Debilidades y riesgos críticos
+
+#### La función principal todavía no está validada
+
+El mayor riesgo del proyecto no es una funcionalidad pendiente: es que la alarma, pese a funcionar en tests, aún no ha demostrado fiabilidad en condiciones reales. Hasta validar eso, el producto sigue siendo técnicamente prometedor, pero no probado.
+
+Las pruebas deben cubrir como mínimo:
+
+- Pantalla apagada durante trayectos largos.
+- Android con ahorro de batería, modo Doze y restricciones agresivas de distintos fabricantes.
+- iPhone bloqueado y aplicación suspendida.
+- Pérdida temporal de GPS, túneles, barrancos y zonas urbanas densas.
+- Usuario que sube a mitad de ruta.
+- Vehículo desviado, ruta modificada o trazado GTFS incorrecto.
+- Líneas circulares y recorridos que pasan varias veces cerca del mismo punto.
+- Dos ramales con trazado compartido.
+- Autobús detenido durante varios minutos.
+- Paradas omitidas, adelantamientos respecto al horario y destino final.
+- Reinicio del teléfono, cierre forzado y retirada de permisos durante el trayecto.
+
+Conviene definir una métrica de aceptación, por ejemplo: “aviso correcto antes del destino en al menos el 99 % de trayectos válidos, con menos del 0,5 % de avisos prematuros graves”.
+
+#### El map matching aún puede equivocarse
+
+Proyectar al punto más cercano de la polilínea no basta cuando el trazado:
+
+- Se cruza consigo mismo.
+- Tiene ida y vuelta por la misma carretera.
+- Pasa varias veces cerca de la misma ubicación.
+- Incluye bucles o ramales.
+- Presenta saltos o geometrías defectuosas.
+
+La proyección debería considerar también:
+
+- Progreso anterior.
+- Rumbo del dispositivo.
+- Velocidad.
+- Ventana limitada del trazado alrededor de la última posición válida.
+- Precisión GPS reportada.
+- Secuencia de observaciones, no solo una muestra aislada.
+- Distancia de la proyección al trazado y un estado explícito de “posición incierta”.
+
+Ignorar retrocesos protege contra ruido, pero también puede ocultar una selección de sentido incorrecta, un desvío real o que el usuario haya tomado otra guagua. No debería mantenerse indefinidamente una hipótesis incorrecta.
+
+#### Los umbrales necesitan redundancia
+
+El disparo por tiempo es inherentemente menos fiable que por paradas o distancia. Una media móvil exponencial puede producir estimaciones absurdas cuando la guagua está parada, acaba de arrancar o entra en tráfico denso.
+
+La alarma debería usar una política defensiva:
+
+- Disparar cuando se cumpla cualquiera de varias condiciones seguras.
+- Añadir un límite final independiente, por ejemplo al entrar en un radio próximo al destino.
+- Evitar que una ETA inestable retrase una alarma que ya corresponde por distancia.
+- Alertar algo antes cuando la precisión GPS sea mala.
+- Mostrar “ETA no fiable” en vez de un número engañoso.
+- Tener una alarma de respaldo si se pierde el GPS cerca del destino previsto.
+
+#### Android e iOS no ofrecen las mismas garantías
+
+La arquitectura descrita parece principalmente Android. En iOS, la ejecución continua en segundo plano está mucho más limitada y debe justificarse mediante el modo de localización en segundo plano. Incluso correctamente implementada, el sistema puede terminar o suspender procesos.
+
+En Android deben revisarse específicamente:
+
+- Permiso de ubicación en segundo plano.
+- Tipo declarado del foreground service.
+- Permiso de notificaciones.
+- Inicio del servicio desde segundo plano.
+- Restricciones de batería del fabricante.
+- Restauración tras muerte del proceso.
+- Comportamiento desde Android 13–15.
+- Políticas de Google Play para `fullScreenIntent`.
+
+La categoría de alarma no garantiza saltarse “No molestar”. Tampoco debe prometerse pantalla completa en todos los dispositivos. Google Play restringe cada vez más los intents de pantalla completa a casos de alarma o llamada; será necesario justificar claramente que esta es una función principal de alarma.
+
+#### Riesgo de batería
+
+GPS continuo con alta precisión, isolate, mapa y actualización frecuente de notificaciones puede consumir bastante batería. Debería medirse en trayectos reales de 30, 60 y 120 minutos.
+
+Una estrategia adaptativa sería mejor:
+
+- Muestreo moderado lejos del destino.
+- Mayor frecuencia durante movimiento y cerca de la parada.
+- Menor frecuencia si el vehículo lleva tiempo detenido.
+- Uso de actividad, velocidad y precisión para ajustar el intervalo.
+- Mapa sin seguimiento continuo cuando la pantalla esté apagada.
+- Limitación de actualizaciones visuales de la notificación.
+
+Debe mostrarse una estimación comprensible del impacto y permitir finalizar el seguimiento inmediatamente.
+
+#### Actualización de la base: integridad no equivale a autenticidad
+
+El SHA-256 verifica que el archivo coincide con el manifest, pero si un atacante compromete la release y el manifest, puede sustituir ambos. Sería mejor firmar criptográficamente el manifest con una clave cuya parte pública esté incluida en la aplicación.
+
+También faltan controles recomendables:
+
+- Validación estructural y semántica antes de activar la base.
+- Conservación de la versión anterior para rollback.
+- Comprobación de espacio libre.
+- Descarga reanudable y límites de tamaño.
+- Protección frente a downgrade.
+- Canal de emergencia para retirar una base defectuosa.
+- Pruebas automáticas de rutas, secuencias, calendarios y geometrías, no solo generación correcta.
+
+Comparar únicamente una “versión” exige que esa versión sea monotónica y fiable. Debe evitarse que cambios de metadatos o reconstrucciones equivalentes generen actualizaciones innecesarias.
+
+#### La clave SAE no está realmente protegida
+
+`--dart-define` evita subir la clave al repositorio, pero en una aplicación publicada el valor termina dentro del binario y puede extraerse. Además, al usar HTTP puede observarse durante el tráfico de red. Debe asumirse que el `idApp` será público una vez distribuida la aplicación.
+
+Antes del lanzamiento hacen falta:
+
+- Autorización escrita de TITSA para distribución y condiciones de uso.
+- Una credencial específica de producción.
+- Límites de consumo y comportamiento ante bloqueos.
+- Caché y agrupación de consultas para no sobrecargar el servicio.
+- Identificación de la aplicación si TITSA lo solicita.
+- Plan de contingencia cuando el SAE falle o cambie su XML.
+
+Un proxy HTTPS propio ocultaría la credencial y permitiría controlar cuotas, pero introduce costes, disponibilidad, tratamiento de IP y nuevas responsabilidades. No debería añadirse sin acordarlo con TITSA.
+
+#### HTTP es una debilidad importante
+
+El cleartext permite observación y manipulación del XML en redes hostiles. Aunque no afecte directamente al posicionamiento de la alarma, podría mostrar llegadas falsas.
+
+Si no existe endpoint HTTPS:
+
+- Restringir el cleartext exclusivamente al host necesario.
+- Tratar toda respuesta como no confiable.
+- Usar parser XML seguro.
+- Aplicar límites de tamaño, tiempo y frecuencia.
+- Rechazar valores imposibles.
+- Separar claramente “tiempo real no disponible” de “sin llegadas”.
+
+#### Privacidad
+
+El procesamiento local es una ventaja competitiva, pero debe quedar plasmado en una política de privacidad breve y verificable. Hay que aclarar:
+
+- Qué ubicación se recoge.
+- Que no se envía a servidores propios, si realmente es así.
+- Cuánto tiempo permanece en memoria o almacenamiento.
+- Qué registran los logs y los informes de errores.
+- Qué información reciben OSM, el proveedor de teselas, TITSA o GitHub al realizar peticiones.
+
+No deben aparecer coordenadas, destinos o identificadores sensibles en logs de producción. Si se incorpora analítica, debería ser opcional, agregada y no registrar recorridos.
+
+#### Aspectos legales y de terceros
+
+- La atribución CC-BY del GTFS debe ser visible, correcta y conservar referencia a la fuente, autor y licencia.
+- “No oficial” debe figurar claramente en ficha de tienda, onboarding y sección legal. Evitar logos, colores o nombres que puedan inducir a pensar que existe respaldo oficial.
+- Deben documentarse fecha y versión de los datos para no presentar información desactualizada como oficial.
+- OpenStreetMap requiere atribución; además, sus teselas públicas estándar no son un backend gratuito de producción. Hace falta contratar un proveedor compatible, alojar teselas o prescindir del mapa online donde sea posible.
+- La autorización de desarrollo del SAE no implica autorización para redistribuir una credencial ni explotar el servicio en producción.
+- Conviene revisar licencias de todos los paquetes, fuentes, iconos, sonidos y cartografía.
+- La aplicación debería incluir una limitación de responsabilidad razonable: las alertas son una ayuda y no pueden garantizar la bajada correcta. Esto no sustituye asesoramiento jurídico.
+
+## 2. Evaluación del enfoque de producto
+
+### Puntos fuertes
+
+- Resuelve un problema concreto, fácil de explicar y emocionalmente reconocible.
+- La alarma es una diferenciación real frente a una aplicación genérica de horarios.
+- Tiene especial valor para turistas, personas que no conocen una ruta, viajeros nocturnos y usuarios con fatiga o ansiedad.
+- Offline-first encaja bien con visitantes sin buena cobertura o sin datos móviles.
+- No exigir cuenta reduce fricción y mejora la confianza.
+- El alcance inicial puede ser manejable si el producto se centra en “buscar, configurar y recibir la alarma”.
+- Tenerife ofrece un contexto donde el trazado real aporta valor tangible por la geografía y la complejidad de algunos recorridos.
+
+### Debilidades
+
+- Se corre el riesgo de convertir la app en un sustituto completo de Google Maps, Moovit o la app oficial. Planificación multimodal, NFC, crowdsourcing, widgets y automoción pueden diluir el producto antes de validar su función principal.
+- La configuración línea → sentido → parada puede ser difícil para turistas que no conocen esos conceptos. Muchos usuarios saben dónde están y adónde quieren ir, pero no el sentido o la expedición.
+- La promesa “puedes dormir” eleva mucho la expectativa de fiabilidad. Un solo fallo en un trayecto importante puede destruir la confianza.
+- El mapa depende de conexión aunque los datos de transporte sean offline. Esto puede contradecir la percepción de funcionamiento totalmente offline.
+- El valor recurrente puede ser limitado para residentes que ya conocen sus trayectos. Favoritos, activación rápida y automatización son importantes para crear hábito.
+- La aplicación depende de proveedores sobre los que no tiene control: GTFS, SAE, cartografía, políticas de segundo plano y tiendas.
+- No disponer de GPS del vehículo significa que la app depende del teléfono del pasajero. Si el GPS es malo o el usuario no está realmente en la guagua, la inferencia puede fallar.
+- Incluir tranvía requiere validar si el mismo modelo de datos y las mismas fuentes cubren correctamente sus trayectos y tiempo real.
+
+### Recomendación de enfoque
+
+El primer lanzamiento debería concentrarse en una promesa: “elige dónde bajas y te avisamos con antelación”. Antes de ampliar mucho el alcance:
+
+1. Validar la alarma en dispositivos y rutas reales.
+2. Medir falsos negativos, avisos tardíos y consumo de batería.
+3. Simplificar la activación a pocos pasos.
+4. Resolver permisos y funcionamiento en segundo plano de forma transparente.
+5. Conseguir autorización de producción de TITSA.
+6. Sustituir las teselas públicas.
+7. Hacer una beta limitada con telemetría voluntaria y botón “¿te avisó a tiempo?”.
+
+## 3. Ideas nuevas priorizadas
+
+### Prioridad alta: mucho valor, esfuerzo razonable
+
+**1. Modo “Estoy en esta guagua” con detección asistida**
+
+Sugerir automáticamente línea y sentido combinando posición, hora, paradas cercanas, trazados y movimiento. El usuario solo confirma. Reduce el mayor punto de fricción de la configuración.
+
+Riesgo: no activar automáticamente si hay ambigüedad; mostrar dos o tres candidatos con nivel de confianza.
+
+**2. Prueba de alarma antes del viaje**
+
+Botón que reproduce exactamente el sonido, vibración y notificación que se usarán, verificando volumen, permisos y canal. Debe avisar si:
+
+- Las notificaciones están deshabilitadas.
+- El canal está silenciado.
+- El volumen de alarma es cero.
+- El ahorro de batería puede detener el servicio.
+- Falta ubicación precisa o en segundo plano.
+- No se permite pantalla completa.
+
+Esto evita descubrir un problema cuando ya es tarde.
+
+**3. Indicador de salud de la alarma**
+
+Durante el seguimiento mostrar un estado claro:
+
+- Verde: GPS preciso y seguimiento correcto.
+- Ámbar: precisión baja o progreso incierto.
+- Rojo: GPS perdido, permisos retirados o servicio detenido.
+
+Si el estado empeora, avisar al usuario antes de que la alarma deje de ser fiable.
+
+**4. Alarma de respaldo escalonada**
+
+En lugar de un único evento:
+
+- Preaviso suave.
+- Aviso principal.
+- Aviso urgente al llegar o quedar una parada.
+- Repetición limitada hasta que el usuario confirme “Estoy despierto”.
+
+Debe evitarse una repetición indefinida y ofrecer parada inmediata.
+
+**5. Activación desde una parada física**
+
+Al tocar una parada cercana, ofrecer “avísame al llegar a…” y deducir las líneas posibles desde esa parada. Esto encaja mejor con la situación real que empezar eligiendo una línea desde cero.
+
+**6. Funcionamiento degradado explícito**
+
+Si la posición no puede asociarse con confianza al trazado, cambiar temporalmente a una alarma geográfica conservadora alrededor del destino y explicarlo. Es preferible una aproximación segura a dejar de avisar silenciosamente.
+
+**7. Informe posviaje de un toque**
+
+Preguntar: “¿Te avisamos a tiempo?”, con opciones “demasiado pronto”, “bien”, “tarde” o “no avisó”. Guardarlo localmente y permitir envío voluntario sin recorrido completo. Esto aporta evidencia para calibrar umbrales.
+
+### Prioridad media
+
+**8. Alarma recurrente por contexto**
+
+Guardar reglas locales como “laborables, cuando detectes que viajo en la línea 014 hacia Santa Cruz, preparar destino X”. La activación final debe requerir confirmación para evitar consumo accidental.
+
+**9. Destino flexible**
+
+Permitir elegir un lugar, hotel o punto del mapa y sugerir las paradas de bajada más convenientes. No requiere todavía un planificador completo A→B y aporta mucho valor turístico.
+
+**10. Compartir estado del trayecto**
+
+Generar un enlace temporal o mensaje: “Voy hacia X, quedan aproximadamente 4 paradas”. Debe ser manual, expirar pronto y no habilitar seguimiento permanente por defecto.
+
+**11. Paquete cartográfico mínimo offline**
+
+Guardar únicamente una franja simplificada alrededor del recorrido activo, o usar un mapa esquemático offline. Reduce dependencia de teselas y conserva la orientación básica sin intentar ofrecer cartografía completa.
+
+**12. Detección de descenso prematuro**
+
+Si el usuario se aleja del trazado o deja de moverse como vehículo antes del destino, preguntar si ha bajado y ofrecer cancelar o recalcular. Evita mantener GPS activo innecesariamente.
+
+**13. Modo emergencia operacional**
+
+Si se publica una base defectuosa, permitir desactivarla remotamente mediante un manifest firmado y volver a la anterior. Es más importante que muchas funciones visibles.
+
+**14. Diagnóstico exportable**
+
+Generar un informe local, sin coordenadas exactas por defecto, con versión de datos, modelo de teléfono, permisos, precisión GPS, eventos del motor y motivo del disparo. Facilitará investigar fallos difíciles de reproducir.
+
+### Prioridad baja o posterior
+
+- Gamificación de paradas visitadas.
+- Información turística contextual al acercarse a lugares de interés.
+- Recordatorio de pertenencias al detectar la llegada.
+- Aviso para preparar la solicitud de parada, especialmente en trayectos donde deba pulsarse el botón con antelación.
+- Modo grupo para que varias personas compartan temporalmente una alarma.
+- Estadísticas privadas locales de tiempo ahorrado, rutas frecuentes y puntualidad percibida.
+
+## Riesgos adicionales que conviene incorporar al backlog
+
+- Datos GTFS con `stop_sequence`, `shape_dist_traveled` o formas inconsistentes.
+- Cambios temporales de recorrido que no aparezcan rápidamente en el GTFS.
+- Calendarios vacíos o actualización oficial publicada con errores.
+- Cambio de huso horario, horario de verano y servicios posteriores a medianoche.
+- Múltiples viajes con idéntico patrón pero distinta secuencia efectiva.
+- Coordenadas GPS simuladas o ubicación aproximada.
+- Teléfonos sin Google Play Services.
+- Falta de espacio durante la actualización.
+- Corrupción o bloqueo de SQLite mientras el servicio mantiene una lectura abierta.
+- Reinicio de la aplicación entre selección y activación efectiva de la nueva base.
+- XML malformado, respuestas HTML de error o cambios silenciosos del SAE.
+- Saturación del endpoint por consultar llegadas de muchas paradas.
+- Distracción del usuario por una interfaz demasiado interactiva durante el viaje.
+- Confusión entre “paradas restantes” físicas y paradas que una expedición concreta omite.
+- Responsabilidad reputacional si la aplicación afirma que una alarma está activa cuando el sistema operativo ya no permite garantizarla.
+
+La prioridad absoluta debería ser convertir la fiabilidad de la alarma en una propiedad medible y visible. Si esa parte funciona consistentemente en móviles reales, el proyecto tiene una propuesta sólida; si no, añadir más funciones aumentará el alcance sin resolver el principal riesgo del producto.
