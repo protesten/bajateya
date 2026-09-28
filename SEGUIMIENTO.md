@@ -21,6 +21,8 @@ Leyenda: ✅ hecho · 🚧 en curso · ⬜ pendiente
 | **Alarma en segundo plano + notificaciones** | ✅ compila (APK generado) |
 | **Actualización de datos (GTFS) + versionado** | ✅ implementado |
 | **Consentimiento de descarga + ajustes** | ✅ implementado (APK ok) |
+| **Repositorio en GitHub + CI de datos** | ✅ subido (protesten/bajateya) |
+| Primera release de datos publicada | ⬜ (lanzar workflow manual) |
 | Mapa (paradas + trazado) | ⬜ |
 | Favoritos locales | ⬜ |
 | Planificador de rutas | ⬜ |
@@ -168,6 +170,26 @@ Leyenda: ✅ hecho · 🚧 en curso · ⬜ pendiente
   versión y validez de los datos, interruptor "solo WiFi", y **"Comprobar
   actualizaciones ahora"** (forzado; si hay novedad, usa el mismo diálogo).
 - **Verificado:** `flutter analyze` limpio y APK de debug compilado.
+
+### 11. Repositorio en GitHub + CI ✅
+- **Repo:** https://github.com/protesten/bajateya (público). Rama `main`.
+- **Seguridad:** `config/secrets.env` (con la `idApp`) está en `.gitignore`;
+  barrido confirmado sin secretos en el repo. La `idApp` nunca va al código.
+- **Incluye:** la BD semilla `app/assets/guaguas.sqlite` (para funcionar offline
+  al instalar) y `manifest.json` apuntando al release `gtfs` del repo.
+- **CI:** workflow con `workflow_dispatch` (opción `force`) y cron diario;
+  `data/source_state.json` NO versionado para que la 1ª ejecución detecte cambio
+  y publique la release inicial. YAML validado.
+- **Pendiente (acción del usuario):** lanzar el workflow una vez para crear la
+  primera release (ver abajo).
+
+---
+
+## ▶️ Acción pendiente tuya: publicar la primera release de datos
+En GitHub → pestaña **Actions** → workflow **"Actualizar datos GTFS"** →
+**Run workflow** → marca **force = true** → **Run**. Creará el release `gtfs`
+con `guaguas-2026-09-27.sqlite` y `manifest.json`. A partir de ahí la app podrá
+comprobar y descargar actualizaciones.
 
 ---
 
