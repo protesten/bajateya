@@ -140,6 +140,8 @@ class _TripTaskHandler extends TaskHandler {
       'metersRemaining': st.metersRemaining,
       'etaSeconds': st.etaSeconds,
       'arrived': st.arrived,
+      'lat': pos.latitude,
+      'lon': pos.longitude,
     });
 
     if (st.shouldRing && !_rang) {

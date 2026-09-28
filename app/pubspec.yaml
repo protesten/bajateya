@@ -23,6 +23,8 @@ dependencies:
   crypto: ^3.0.5         # SHA-256 para verificar la BD descargada
   shared_preferences: ^2.3.2  # preferencias (solo-WiFi, última comprobación)
   connectivity_plus: ^6.0.5   # saber si hay WiFi o datos móviles
+  flutter_map: ^7.0.2    # mapa (teselas OSM, sin clave de pago)
+  latlong2: ^0.9.1       # coordenadas para flutter_map
 
 dev_dependencies:
   flutter_test:

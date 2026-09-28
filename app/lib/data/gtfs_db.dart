@@ -38,6 +38,18 @@ class GtfsDb {
           lat, lat, lon, lon, limit]);
   }
 
+  /// Paradas dentro de un rectángulo geográfico (área visible del mapa).
+  Future<List<Map<String, Object?>>> stopsInBounds(
+      double minLat, double maxLat, double minLon, double maxLon,
+      {int limit = 400}) async {
+    final db = await _open();
+    return db.rawQuery('''
+      SELECT stop_id, name, lat, lon FROM stops
+      WHERE lat BETWEEN ? AND ? AND lon BETWEEN ? AND ?
+      LIMIT ?
+    ''', [minLat, maxLat, minLon, maxLon, limit]);
+  }
+
   Future<List<Map<String, Object?>>> searchStops(String q,
       {int limit = 30}) async {
     final db = await _open();

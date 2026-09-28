@@ -5,9 +5,10 @@ import 'alarm/alarm_service.dart';
 import 'data/data_updater.dart';
 import 'data/gtfs_db.dart';
 import 'data/titsa_realtime.dart';
+import 'ui/alarm_entry.dart';
 import 'ui/data_update_ui.dart';
+import 'ui/map_page.dart';
 import 'ui/settings_page.dart';
-import 'ui/trip_setup_page.dart';
 
 /// Clave SAE inyectada en compilación:
 ///   flutter run --dart-define=TITSA_ID_APP=xxxxxxxx
@@ -127,6 +128,13 @@ class _StopSearchPageState extends State<StopSearchPage> {
           ),
         ],
       ),
+      floatingActionButton: FloatingActionButton.extended(
+        onPressed: () => Navigator.of(context).push(MaterialPageRoute(
+          builder: (_) => MapPage(db: _db),
+        )),
+        icon: const Icon(Icons.map),
+        label: const Text('Mapa'),
+      ),
       body: Column(
         children: [
           Padding(
@@ -162,46 +170,6 @@ class _StopSearchPageState extends State<StopSearchPage> {
     );
   }
 
-  /// Muestra las líneas (patrones) que pasan por la parada para crear una alarma.
-  Future<void> _chooseLineForAlarm(int stopId) async {
-    final patterns = await _db.patternsThroughStop(stopId);
-    if (!mounted) return;
-    await showModalBottomSheet<void>(
-      context: context,
-      builder: (_) => ListView(
-        children: [
-          const ListTile(
-            title: Text('¿Qué línea vas a coger?',
-                style: TextStyle(fontWeight: FontWeight.bold)),
-          ),
-          for (final p in patterns)
-            ListTile(
-              leading: CircleAvatar(child: Text('${p['short_name']}')),
-              title: Text('${p['headsign']}'),
-              onTap: () {
-                Navigator.of(context).pop();
-                Navigator.of(context).push(MaterialPageRoute(
-                  builder: (_) => TripSetupPage(
-                    db: _db,
-                    patternId: p['pattern_id'] as int,
-                    shapeId: p['shape_id'] as String?,
-                    lineName: '${p['short_name']}',
-                    headsign: '${p['headsign']}',
-                    boardingStopId: stopId,
-                  ),
-                ));
-              },
-            ),
-          if (patterns.isEmpty)
-            const Padding(
-              padding: EdgeInsets.all(24),
-              child: Text('No hay líneas registradas para esta parada.'),
-            ),
-        ],
-      ),
-    );
-  }
-
   Widget _arrivalsView() {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -217,7 +185,7 @@ class _StopSearchPageState extends State<StopSearchPage> {
               ),
               const Spacer(),
               TextButton.icon(
-                onPressed: () => _chooseLineForAlarm(_selected!),
+                onPressed: () => chooseLineForAlarm(context, _db, _selected!),
                 icon: const Icon(Icons.notifications_active),
                 label: const Text('Alarma'),
               ),

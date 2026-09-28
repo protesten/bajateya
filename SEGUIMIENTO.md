@@ -23,7 +23,7 @@ Leyenda: ✅ hecho · 🚧 en curso · ⬜ pendiente
 | **Consentimiento de descarga + ajustes** | ✅ implementado (APK ok) |
 | **Repositorio en GitHub + CI de datos** | ✅ subido (protesten/bajateya) |
 | **Primera release de datos publicada** | ✅ release `gtfs` (verificada) |
-| Mapa (paradas + trazado) | ⬜ |
+| **Mapa (paradas + trazado del viaje)** | ✅ implementado (APK ok) |
 | Favoritos locales | ⬜ |
 | Planificador de rutas | ⬜ |
 | Multidioma | ⬜ |
@@ -194,6 +194,27 @@ Leyenda: ✅ hecho · 🚧 en curso · ⬜ pendiente
   re-descargas al instalar: (1) la semilla empaquetada ahora es exactamente el
   fichero publicado; (2) la app decide "al día" por **versión**, y usa el
   **SHA-256 solo para verificar la descarga** (`data_updater.dart`).
+
+### 13. Mapa (paradas + trazado del viaje) ✅
+- **Tecnología:** `flutter_map` con teselas **OpenStreetMap** (sin clave de pago),
+  `latlong2` para coordenadas. User-Agent propio (requisito de OSM). Atribución
+  "© OpenStreetMap" visible.
+- **Mapa de paradas** (`lib/ui/map_page.dart`, botón "Mapa" en la pantalla
+  principal): centra en la ubicación del usuario (o Santa Cruz por defecto),
+  carga las paradas del **área visible** (`GtfsDb.stopsInBounds`, solo con zoom
+  ≥13 para no saturar), botón "mi ubicación", y al tocar una parada → hoja con
+  "Crear alarma de bajada".
+- **Mapa del viaje** en la pantalla de seguimiento (`tracking_page.dart`): dibuja
+  el **trazado real** de la línea (polilínea), **resalta la parada de destino**
+  (chincheta roja) y muestra la **posición en vivo** (punto azul) que ahora envía
+  el servicio (`lat`/`lon` añadidos al mensaje de estado).
+- **Reutilización:** selector de línea extraído a `lib/ui/alarm_entry.dart`
+  (compartido por lista y mapa).
+- **Verificado:** `flutter analyze` limpio, APK compilado, coordenadas de paradas
+  dentro de Tenerife y servidor de teselas OSM responde (HTTP 200).
+- **Pendiente producción:** el tile server público de OSM tiene política de uso
+  restrictiva; para publicar conviene un proveedor de teselas propio o de pago
+  (p. ej. MapTiler/Protomaps) — cambiar `osmTileUrl` en `alarm_entry.dart`.
 
 ---
 
