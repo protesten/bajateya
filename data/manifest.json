@@ -1,11 +1,11 @@
 {
   "version": "2026-09-27",
-  "built_at": "2026-09-28T20:57:44+00:00",
+  "built_at": "2026-09-28T21:02:31+00:00",
   "source_last_modified": "2026-09-27T23:01:03.735026",
   "valid_from": "20260927",
   "valid_to": "20270326",
   "sqlite_url": "https://github.com/protesten/bajateya/releases/download/gtfs/guaguas-2026-09-27.sqlite",
-  "sqlite_sha256": "86ffb2d1e7081600277c2d063ebe36b0e6ec57e3c3b76be6d9e732f33d0cecc5",
+  "sqlite_sha256": "964b4e9e9b9b944282f43ae8e2314eb9f422cf9b4e07f4df76825df9628ecf99",
   "sqlite_size": 15753216,
   "min_app_version": "0.1.0"
 }

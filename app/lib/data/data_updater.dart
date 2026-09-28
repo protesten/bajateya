@@ -186,9 +186,11 @@ class DataUpdater {
     await prefs.setInt(_kLastCheck, now); // comprobado aunque no haya cambios
 
     final installed = await installedManifest();
-    final same = installed != null &&
-        installed.version == remote.version &&
-        installed.sqliteSha256 == remote.sqliteSha256;
+    // La VERSIÓN identifica el conjunto de datos; el SHA-256 solo sirve para
+    // verificar la descarga. Dos construcciones de la misma versión pueden dar
+    // bytes distintos (SQLite no es determinista), así que no comparamos hash
+    // aquí para no forzar re-descargas innecesarias.
+    final same = installed != null && installed.version == remote.version;
     if (same) {
       return UpdateCheck(
           available: false, remote: remote, offline: false,

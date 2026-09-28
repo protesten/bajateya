@@ -22,7 +22,7 @@ Leyenda: ✅ hecho · 🚧 en curso · ⬜ pendiente
 | **Actualización de datos (GTFS) + versionado** | ✅ implementado |
 | **Consentimiento de descarga + ajustes** | ✅ implementado (APK ok) |
 | **Repositorio en GitHub + CI de datos** | ✅ subido (protesten/bajateya) |
-| Primera release de datos publicada | ⬜ (lanzar workflow manual) |
+| **Primera release de datos publicada** | ✅ release `gtfs` (verificada) |
 | Mapa (paradas + trazado) | ⬜ |
 | Favoritos locales | ⬜ |
 | Planificador de rutas | ⬜ |
@@ -183,13 +183,17 @@ Leyenda: ✅ hecho · 🚧 en curso · ⬜ pendiente
 - **Pendiente (acción del usuario):** lanzar el workflow una vez para crear la
   primera release (ver abajo).
 
----
-
-## ▶️ Acción pendiente tuya: publicar la primera release de datos
-En GitHub → pestaña **Actions** → workflow **"Actualizar datos GTFS"** →
-**Run workflow** → marca **force = true** → **Run**. Creará el release `gtfs`
-con `guaguas-2026-09-27.sqlite` y `manifest.json`. A partir de ahí la app podrá
-comprobar y descargar actualizaciones.
+### 12. Primera release de datos + verificación ✅
+- **Release `gtfs` publicada** por el CI: `guaguas-2026-09-27.sqlite` (15.753.216 B)
+  y `manifest.json`. URL: https://github.com/protesten/bajateya/releases/tag/gtfs
+- **Verificado** (descarga real): el `manifest.json` remoto es correcto y el
+  SHA-256 del `.sqlite` publicado coincide con el de su manifest → la app lo
+  descargaría y validaría bien.
+- **Corrección aplicada:** el `.sqlite` de CI y la semilla local tenían el mismo
+  tamaño pero distinto hash (SQLite no es determinista byte a byte). Para evitar
+  re-descargas al instalar: (1) la semilla empaquetada ahora es exactamente el
+  fichero publicado; (2) la app decide "al día" por **versión**, y usa el
+  **SHA-256 solo para verificar la descarga** (`data_updater.dart`).
 
 ---
 
