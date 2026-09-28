@@ -72,6 +72,9 @@ class AlarmService {
       notificationTitle: 'Siguiendo tu viaje',
       notificationText: 'Preparando el seguimiento…',
       notificationIcon: null,
+      notificationButtons: [
+        const NotificationButton(id: 'stop', text: 'Detener'),
+      ],
       callback: alarmServiceCallback,
     );
   }
@@ -101,6 +104,9 @@ class AlarmService {
       notificationTitle: 'Reanudando tu viaje',
       notificationText: 'Recuperando el seguimiento…',
       notificationIcon: null,
+      notificationButtons: [
+        const NotificationButton(id: 'stop', text: 'Detener'),
+      ],
       callback: alarmServiceCallback,
     );
   }
@@ -289,6 +295,16 @@ class _TripTaskHandler extends TaskHandler {
     if (data == 'stop') {
       _staleTimer?.cancel();
       _gps?.cancel();
+    }
+  }
+
+  @override
+  void onNotificationButtonPressed(String id) {
+    if (id == 'stop') {
+      _staleTimer?.cancel();
+      _gps?.cancel();
+      FlutterForegroundTask.removeData(key: _kActiveKey);
+      FlutterForegroundTask.stopService();
     }
   }
 }

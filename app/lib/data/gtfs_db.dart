@@ -50,26 +50,65 @@ class GtfsDb {
     ''', [minLat, maxLat, minLon, maxLon, limit]);
   }
 
+  /// Busca paradas por nombre o por **código** (si el texto es numérico).
   Future<List<Map<String, Object?>>> searchStops(String q,
       {int limit = 30}) async {
     final db = await _open();
+    final code = int.tryParse(q.trim());
+    if (code != null) {
+      // Coincidencia por código (exacta primero, luego por prefijo).
+      return db.rawQuery('''
+        SELECT stop_id, name, lat, lon FROM stops
+        WHERE stop_id = ? OR CAST(stop_id AS TEXT) LIKE ?
+        ORDER BY (stop_id = ?) DESC, stop_id LIMIT ?
+      ''', [code, '$code%', code, limit]);
+    }
     return db.rawQuery(
       "SELECT stop_id, name, lat, lon FROM stops WHERE name LIKE ? LIMIT ?",
       ['%${q.toUpperCase()}%', limit],
     );
   }
 
-  /// Patrones (línea + sentido) que pasan por una parada.
+  /// Líneas (deduplicadas por número + destino) que pasan por una parada.
+  /// De cada línea/destino se elige el patrón con **más paradas por delante**
+  /// de esta (mejor itinerario para una alarma de bajada).
   Future<List<Map<String, Object?>>> patternsThroughStop(int stopId) async {
     final db = await _open();
-    return db.rawQuery('''
-      SELECT DISTINCT p.pattern_id, r.short_name, p.headsign, p.shape_id
+    final rows = await db.rawQuery('''
+      SELECT ps.seq, p.pattern_id, r.short_name, p.headsign, p.shape_id,
+             p.n_stops
       FROM pattern_stops ps
       JOIN patterns p ON p.pattern_id = ps.pattern_id
       JOIN routes  r ON r.route_id   = p.route_id
       WHERE ps.stop_id = ?
-      ORDER BY r.short_name
     ''', [stopId]);
+
+    // Dedup por (short_name, headsign) quedándonos con el de más paradas
+    // posteriores a la de subida.
+    final best = <String, Map<String, Object?>>{};
+    for (final r in rows) {
+      final key = '${r['short_name']}|${r['headsign']}';
+      final onward = (r['n_stops'] as int) - 1 - (r['seq'] as int);
+      final prev = best[key];
+      if (prev == null || onward > (prev['_onward'] as int)) {
+        best[key] = {
+          'pattern_id': r['pattern_id'],
+          'short_name': r['short_name'],
+          'headsign': r['headsign'],
+          'shape_id': r['shape_id'],
+          '_onward': onward,
+        };
+      }
+    }
+    final out = best.values.toList()
+      ..sort((a, b) {
+        final an = int.tryParse('${a['short_name']}') ?? 9999;
+        final bn = int.tryParse('${b['short_name']}') ?? 9999;
+        return an != bn
+            ? an.compareTo(bn)
+            : '${a['headsign']}'.compareTo('${b['headsign']}');
+      });
+    return out;
   }
 
   /// Puntos del trazado de un patrón (para el mapa y para proyectar el GPS).

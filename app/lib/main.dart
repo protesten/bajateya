@@ -71,6 +71,10 @@ class _StopSearchPageState extends State<StopSearchPage> {
     super.initState();
     _maybeUpdateData();
     _maybeResumeTrip();
+    _refreshActiveTrip();
+    // Refresca el aviso al volver a la app (p. ej. tras detener/llegar).
+    _lifecycle = _LifecycleHook(_refreshActiveTrip);
+    WidgetsBinding.instance.addObserver(_lifecycle);
   }
 
   /// Si quedó un viaje activo pero el servicio no está corriendo (el sistema lo
@@ -120,6 +124,25 @@ class _StopSearchPageState extends State<StopSearchPage> {
     }
   }
 
+  TripPlan? _activeTrip;
+
+  /// Comprueba si hay una alarma activa para mostrar el aviso de "Detener".
+  Future<void> _refreshActiveTrip() async {
+    final active = await AlarmService.hasActiveTrip();
+    final plan = active ? await AlarmService.savedPlan() : null;
+    if (mounted) setState(() => _activeTrip = plan);
+  }
+
+  Future<void> _stopActiveTrip() async {
+    await AlarmService.stop();
+    await _refreshActiveTrip();
+    if (mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Alarma detenida.')),
+      );
+    }
+  }
+
   Future<void> _search(String q) async {
     if (q.trim().length < 2) return;
     final r = await _db.searchStops(q.trim());
@@ -127,6 +150,7 @@ class _StopSearchPageState extends State<StopSearchPage> {
   }
 
   Future<void> _loadArrivals(int stopId) async {
+    _refreshActiveTrip(); // mantiene el aviso de alarma activa al día
     setState(() {
       _selected = stopId;
       _error = null;
@@ -164,11 +188,12 @@ class _StopSearchPageState extends State<StopSearchPage> {
       ),
       body: Column(
         children: [
+          if (_activeTrip != null) _activeTripBanner(_activeTrip!),
           Padding(
             padding: const EdgeInsets.all(12),
             child: TextField(
               decoration: const InputDecoration(
-                labelText: 'Buscar parada',
+                labelText: 'Buscar parada o código',
                 prefixIcon: Icon(Icons.search),
                 border: OutlineInputBorder(),
               ),
@@ -193,6 +218,40 @@ class _StopSearchPageState extends State<StopSearchPage> {
           else
             Expanded(child: _arrivalsView()),
         ],
+      ),
+    );
+  }
+
+  Widget _activeTripBanner(TripPlan plan) {
+    return Material(
+      color: Theme.of(context).colorScheme.secondaryContainer,
+      child: Padding(
+        padding: const EdgeInsets.fromLTRB(12, 8, 8, 8),
+        child: Row(
+          children: [
+            const Icon(Icons.notifications_active),
+            const SizedBox(width: 8),
+            Expanded(
+              child: Text('Alarma activa hacia ${plan.destination.name}',
+                  style: const TextStyle(fontWeight: FontWeight.w600)),
+            ),
+            TextButton(
+              onPressed: () async {
+                await AlarmService.resume();
+                if (mounted) {
+                  Navigator.of(context).push(MaterialPageRoute(
+                    builder: (_) => TrackingPage(plan: plan),
+                  ));
+                }
+              },
+              child: const Text('Ver'),
+            ),
+            TextButton(
+              onPressed: _stopActiveTrip,
+              child: const Text('Detener'),
+            ),
+          ],
+        ),
       ),
     );
   }
@@ -231,6 +290,12 @@ class _StopSearchPageState extends State<StopSearchPage> {
         Expanded(
           child: ListView(
             children: [
+              if (_arrivals.isNotEmpty)
+                const Padding(
+                  padding: EdgeInsets.fromLTRB(16, 4, 16, 4),
+                  child: Text('Toca una línea para crear su alarma de bajada.',
+                      style: TextStyle(fontSize: 12, color: Colors.grey)),
+                ),
               for (final a in _arrivals)
                 ListTile(
                   leading: CircleAvatar(child: Text('${a.lineId}')),
@@ -238,6 +303,8 @@ class _StopSearchPageState extends State<StopSearchPage> {
                   trailing: Text('${a.minutesLeft} min',
                       style: const TextStyle(
                           fontSize: 18, fontWeight: FontWeight.bold)),
+                  onTap: () =>
+                      chooseLineForAlarm(context, _db, _selected!, onlyLine: a.lineId),
                 ),
               if (_arrivals.isEmpty && _error == null)
                 const Padding(
@@ -251,9 +318,22 @@ class _StopSearchPageState extends State<StopSearchPage> {
     );
   }
 
+  late final _LifecycleHook _lifecycle;
+
   @override
   void dispose() {
+    WidgetsBinding.instance.removeObserver(_lifecycle);
     _rt.dispose();
     super.dispose();
+  }
+}
+
+/// Observa cuándo la app vuelve a primer plano para refrescar el estado.
+class _LifecycleHook extends WidgetsBindingObserver {
+  final void Function() onResumed;
+  _LifecycleHook(this.onResumed);
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    if (state == AppLifecycleState.resumed) onResumed();
   }
 }

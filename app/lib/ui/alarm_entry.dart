@@ -5,18 +5,40 @@ import 'trip_setup_page.dart';
 
 /// Muestra las líneas (patrones) que pasan por [stopId] y, al elegir una, abre
 /// la configuración de la alarma de bajada. Reutilizable desde lista y mapa.
+/// Si [onlyLine] se indica, filtra a esa línea (p. ej. al tocar una llegada).
 Future<void> chooseLineForAlarm(
-    BuildContext context, GtfsDb db, int stopId) async {
-  final patterns = await db.patternsThroughStop(stopId);
+    BuildContext context, GtfsDb db, int stopId, {int? onlyLine}) async {
+  var patterns = await db.patternsThroughStop(stopId);
+  if (onlyLine != null) {
+    patterns = patterns
+        .where((p) => int.tryParse('${p['short_name']}') == onlyLine)
+        .toList();
+  }
   if (!context.mounted) return;
+  // Si tras filtrar por línea solo queda un destino, salta directo a configurar.
+  if (onlyLine != null && patterns.length == 1) {
+    final p = patterns.first;
+    Navigator.of(context).push(MaterialPageRoute(
+      builder: (_) => TripSetupPage(
+        db: db,
+        patternId: p['pattern_id'] as int,
+        shapeId: p['shape_id'] as String?,
+        lineName: '${p['short_name']}',
+        headsign: '${p['headsign']}',
+        boardingStopId: stopId,
+      ),
+    ));
+    return;
+  }
   await showModalBottomSheet<void>(
     context: context,
     builder: (_) => ListView(
       shrinkWrap: true,
       children: [
-        const ListTile(
-          title: Text('¿Qué línea vas a coger?',
-              style: TextStyle(fontWeight: FontWeight.bold)),
+        ListTile(
+          title: Text(
+              onlyLine != null ? '¿Hacia dónde vas?' : '¿Qué línea vas a coger?',
+              style: const TextStyle(fontWeight: FontWeight.bold)),
         ),
         for (final p in patterns)
           ListTile(

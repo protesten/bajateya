@@ -26,7 +26,8 @@ Leyenda: ✅ hecho · 🚧 en curso · ⬜ pendiente
 | **Mapa (paradas + trazado del viaje)** | ✅ implementado (APK ok) |
 | **Endurecimiento del motor de alarma** | ✅ (6 tests, APK ok) |
 | **Fiabilidad (guía batería/OEM) + reanudación** | ✅ (APK ok) |
-| **APK de prueba (release universal) + guía** | ✅ entregado |
+| **APK de prueba (release universal) + guía** | ✅ v0.1.1 |
+| **Correcciones del feedback (v0.1.1)** | ✅ (APK ok) |
 | Favoritos locales | ⬜ |
 | Planificador de rutas | ⬜ |
 | Multidioma | ⬜ |
@@ -281,6 +282,22 @@ Leyenda: ✅ hecho · 🚧 en curso · ⬜ pendiente
   real y la alarma de bajada real).
 - **Ahora le toca al usuario:** validar la alarma en hardware con la pantalla
   apagada (el paso que no se puede hacer desde el entorno de desarrollo).
+
+### 17. Correcciones del primer feedback (v0.1.1) ✅
+- **Líneas repetidas:** `patternsThroughStop` ahora **deduplica por línea+destino**
+  (elige el patrón con más paradas por delante de la de subida). Comprobado: en el
+  Intercambiador pasa de 948 patrones a 81 líneas/destino únicos. Afecta a lista y mapa.
+- **Búsqueda por código de parada:** `searchStops` detecta texto numérico y busca por
+  `stop_id` (exacto y por prefijo), además de por nombre. Placeholder "Buscar parada
+  o código".
+- **Seleccionar línea desde una parada:** cada **llegada es tocable** → crea la alarma
+  de esa línea (si solo hay un destino, salta directo a configurar). Se mantiene el
+  botón "Alarma".
+- **Cancelar la alarma / liberar el GPS:** aviso persistente en la pantalla principal
+  "Alarma activa hacia X" con **Ver** y **Detener**; y **botón "Detener" en la
+  notificación** del servicio (`onNotificationButtonPressed`). Antes no había forma de
+  pararla desde la app.
+- **Verificado:** `flutter analyze` limpio, APK v0.1.1 compilado y entregado.
 
 ---
 
