@@ -9,6 +9,7 @@ import 'get_off_alarm.dart';
 import 'trip_plan.dart';
 
 const String _kPlanKey = 'trip_plan_json';
+const String _kActiveKey = 'trip_active';
 const int _kRingNotificationId = 7001;
 
 /// Punto de entrada del isolate del servicio en primer plano.
@@ -65,6 +66,7 @@ class AlarmService {
   /// Arranca el seguimiento de un viaje concreto.
   static Future<void> start(TripPlan plan) async {
     await FlutterForegroundTask.saveData(key: _kPlanKey, value: plan.encode());
+    await FlutterForegroundTask.saveData(key: _kActiveKey, value: '1');
     await FlutterForegroundTask.startService(
       serviceId: 700,
       notificationTitle: 'Siguiendo tu viaje',
@@ -74,9 +76,34 @@ class AlarmService {
     );
   }
 
-  static Future<void> stop() => FlutterForegroundTask.stopService();
+  static Future<void> stop() async {
+    await FlutterForegroundTask.removeData(key: _kActiveKey);
+    await FlutterForegroundTask.stopService();
+  }
 
   static Future<bool> get isRunning => FlutterForegroundTask.isRunningService;
+
+  /// ¿Hay un viaje marcado como activo (que quizá el sistema haya interrumpido)?
+  static Future<bool> hasActiveTrip() async =>
+      (await FlutterForegroundTask.getData<String>(key: _kActiveKey)) == '1';
+
+  /// Devuelve el plan del viaje activo guardado, si existe.
+  static Future<TripPlan?> savedPlan() async {
+    final json = await FlutterForegroundTask.getData<String>(key: _kPlanKey);
+    return json == null ? null : TripPlan.decode(json);
+  }
+
+  /// Reanuda el seguimiento de un viaje que quedó activo (mismo plan guardado).
+  static Future<void> resume() async {
+    if (await FlutterForegroundTask.isRunningService) return;
+    await FlutterForegroundTask.startService(
+      serviceId: 700,
+      notificationTitle: 'Reanudando tu viaje',
+      notificationText: 'Recuperando el seguimiento…',
+      notificationIcon: null,
+      callback: alarmServiceCallback,
+    );
+  }
 
   /// Suscribe a los datos que envía el servicio (estado y evento de aviso).
   static void addListener(void Function(Object data) cb) =>
@@ -212,6 +239,7 @@ class _TripTaskHandler extends TaskHandler {
     if (st.arrived) {
       _gps?.cancel();
       _staleTimer?.cancel();
+      FlutterForegroundTask.removeData(key: _kActiveKey); // viaje completado
     }
   }
 

@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 
 import '../data/data_updater.dart';
 import 'data_update_ui.dart';
+import 'reliability_page.dart';
 
 /// Ajustes: información de los datos, preferencia solo-WiFi y comprobación manual.
 class SettingsPage extends StatefulWidget {
@@ -66,6 +67,17 @@ class _SettingsPageState extends State<SettingsPage> {
       appBar: AppBar(title: const Text('Ajustes')),
       body: ListView(
         children: [
+          const _SectionTitle('Alarma'),
+          ListTile(
+            leading: const Icon(Icons.health_and_safety),
+            title: const Text('Fiabilidad de la alarma'),
+            subtitle: const Text(
+                'Permisos y ajustes para que suene con la pantalla apagada.'),
+            trailing: const Icon(Icons.chevron_right),
+            onTap: () => Navigator.of(context).push(MaterialPageRoute(
+              builder: (_) => const ReliabilityPage(),
+            )),
+          ),
           const _SectionTitle('Datos de transporte'),
           ListTile(
             leading: const Icon(Icons.dataset),

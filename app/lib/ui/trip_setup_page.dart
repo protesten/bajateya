@@ -2,8 +2,10 @@ import 'package:flutter/material.dart';
 
 import '../alarm/alarm_service.dart';
 import '../alarm/get_off_alarm.dart';
+import '../alarm/reliability.dart';
 import '../alarm/trip_plan.dart';
 import '../data/gtfs_db.dart';
+import 'reliability_page.dart';
 import 'tracking_page.dart';
 
 /// Configura la alarma de bajada: elige la parada de destino y cuándo avisar,
@@ -83,6 +85,33 @@ class _TripSetupPageState extends State<TripSetupPage> {
       shape: _shape,
       config: _config(),
     );
+    // Aviso proactivo si el fabricante puede matar el servicio en 2º plano.
+    final rel = await Reliability.check();
+    if (mounted && !rel.batteryUnrestricted) {
+      final go = await showDialog<bool>(
+        context: context,
+        builder: (ctx) => AlertDialog(
+          title: const Text('Para que la alarma no falle'),
+          content: const Text(
+              'Tu móvil puede cerrar la app en segundo plano y la alarma no '
+              'sonaría. Revisa la fiabilidad antes de empezar.'),
+          actions: [
+            TextButton(
+                onPressed: () => Navigator.pop(ctx, false),
+                child: const Text('Empezar igualmente')),
+            FilledButton(
+                onPressed: () => Navigator.pop(ctx, true),
+                child: const Text('Revisar')),
+          ],
+        ),
+      );
+      if (go == true && mounted) {
+        await Navigator.of(context).push(MaterialPageRoute(
+          builder: (_) => const ReliabilityPage(),
+        ));
+      }
+    }
+
     await AlarmService.start(plan);
     if (mounted) {
       Navigator.of(context).pushReplacement(MaterialPageRoute(

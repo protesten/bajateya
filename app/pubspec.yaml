@@ -25,6 +25,7 @@ dependencies:
   connectivity_plus: ^6.0.5   # saber si hay WiFi o datos móviles
   flutter_map: ^7.0.2    # mapa (teselas OSM, sin clave de pago)
   latlong2: ^0.9.1       # coordenadas para flutter_map
+  device_info_plus: ^11.1.0  # fabricante del dispositivo (guía anti-OEM killers)
 
 dev_dependencies:
   flutter_test:

@@ -25,6 +25,7 @@ Leyenda: ✅ hecho · 🚧 en curso · ⬜ pendiente
 | **Primera release de datos publicada** | ✅ release `gtfs` (verificada) |
 | **Mapa (paradas + trazado del viaje)** | ✅ implementado (APK ok) |
 | **Endurecimiento del motor de alarma** | ✅ (6 tests, APK ok) |
+| **Fiabilidad (guía batería/OEM) + reanudación** | ✅ (APK ok) |
 | Favoritos locales | ⬜ |
 | Planificador de rutas | ⬜ |
 | Multidioma | ⬜ |
@@ -244,6 +245,27 @@ Leyenda: ✅ hecho · 🚧 en curso · ⬜ pendiente
   exención de batería por fabricante (OEM killers); geofencing nativo para iOS;
   persistencia/reanudación del estado tras muerte del servicio; sonido de alarma
   propio; validación real en móvil con pantalla apagada.
+
+### 15. Fiabilidad (guía batería/OEM) + reanudación de viaje ✅
+- **Guía anti "OEM killers"** (`lib/alarm/reliability.dart` + `lib/ui/reliability_page.dart`):
+  detecta el fabricante con `device_info_plus` y muestra una pantalla
+  "Fiabilidad de la alarma" con el estado de: notificaciones, ubicación
+  "siempre", y **exención de optimización de batería**, cada uno con su botón de
+  arreglo. Consejos de **autoarranque/segundo plano específicos** para
+  Xiaomi/Redmi/POCO (MIUI/HyperOS), Huawei/Honor, Samsung, Oppo/Realme/OnePlus,
+  vivo, y genérico. Botón para abrir los ajustes de batería.
+- **Acceso:** desde Ajustes ("Fiabilidad de la alarma") y, de forma proactiva,
+  al iniciar una alarma si la batería no está exenta (diálogo "revisar / empezar
+  igualmente").
+- **Reanudación de viaje:** el servicio marca el viaje como activo
+  (`trip_active`) al iniciar y lo limpia al llegar o parar. Al abrir la app, si
+  hay viaje activo pero el servicio no corre (el sistema lo mató o se cerró la
+  app), se ofrece **"Reanudar"** con el plan guardado (`AlarmService.hasActiveTrip/
+  savedPlan/resume`). Recupera el trayecto tras una interrupción.
+- **Verificado:** `flutter analyze` limpio, APK compilado.
+- **Pendiente relacionado:** geofencing nativo iOS; sonido propio; validación en
+  hardware real; reanudación automática tras reinicio del teléfono (hoy es
+  manual, para no sorprender al usuario).
 
 ---
 

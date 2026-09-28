@@ -5,10 +5,12 @@ import 'alarm/alarm_service.dart';
 import 'data/data_updater.dart';
 import 'data/gtfs_db.dart';
 import 'data/titsa_realtime.dart';
+import 'alarm/trip_plan.dart';
 import 'ui/alarm_entry.dart';
 import 'ui/data_update_ui.dart';
 import 'ui/map_page.dart';
 import 'ui/settings_page.dart';
+import 'ui/tracking_page.dart';
 
 /// Clave SAE inyectada en compilación:
 ///   flutter run --dart-define=TITSA_ID_APP=xxxxxxxx
@@ -68,6 +70,31 @@ class _StopSearchPageState extends State<StopSearchPage> {
   void initState() {
     super.initState();
     _maybeUpdateData();
+    _maybeResumeTrip();
+  }
+
+  /// Si quedó un viaje activo pero el servicio no está corriendo (el sistema lo
+  /// mató, o se cerró la app), ofrece reanudar el seguimiento.
+  Future<void> _maybeResumeTrip() async {
+    if (!await AlarmService.hasActiveTrip()) return;
+    if (await AlarmService.isRunning) return;
+    final TripPlan? plan = await AlarmService.savedPlan();
+    if (plan == null || !mounted) return;
+    ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+      duration: const Duration(seconds: 10),
+      content: Text('Tenías una alarma activa hacia ${plan.destination.name}.'),
+      action: SnackBarAction(
+        label: 'Reanudar',
+        onPressed: () async {
+          await AlarmService.resume();
+          if (mounted) {
+            Navigator.of(context).push(MaterialPageRoute(
+              builder: (_) => TrackingPage(plan: plan),
+            ));
+          }
+        },
+      ),
+    ));
   }
 
   /// Al abrir: comprueba (ligero) si hay datos nuevos y decide según la red y la
