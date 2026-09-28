@@ -27,3 +27,6 @@ tools/.venv/
 # SO
 .DS_Store
 Thumbs.db
+
+# Ficheros temporales del multi-model-team (/reasoning)
+.mmt/
