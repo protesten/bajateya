@@ -5,7 +5,12 @@ name: Actualizar datos GTFS
 on:
   schedule:
     - cron: '30 5 * * *'   # 05:30 UTC cada día
-  workflow_dispatch: {}      # ejecución manual
+  workflow_dispatch:         # ejecución manual
+    inputs:
+      force:
+        description: 'Reconstruir y publicar aunque el origen no haya cambiado'
+        type: boolean
+        default: false
 
 permissions:
   contents: write            # crear/actualizar releases y volcar el estado
@@ -23,12 +28,17 @@ jobs:
       - name: ¿Cambió el GTFS en origen?
         id: check
         run: |
-          OUT=$(python tools/check_source_update.py)
-          echo "$OUT"
-          echo "$OUT" | grep -q '^changed=' && echo "$OUT" | grep '^changed=' >> "$GITHUB_OUTPUT" || true
+          if [ "${{ inputs.force }}" = "true" ]; then
+            echo "changed=true" >> "$GITHUB_OUTPUT"
+            echo "Forzado por ejecución manual."
+          else
+            OUT=$(python tools/check_source_update.py)
+            echo "$OUT"
+            echo "$OUT" | grep '^changed=' >> "$GITHUB_OUTPUT" || echo "changed=false" >> "$GITHUB_OUTPUT"
+          fi
 
       - name: Reconstruir base de datos
-        if: contains(steps.check.outputs.changed, 'true')
+        if: steps.check.outputs.changed == 'true'
         env:
           HOSTING_BASE: https://github.com/${{ github.repository }}/releases/download/gtfs
         run: |
@@ -41,7 +51,7 @@ jobs:
           echo "VERSION=$VERSION" >> "$GITHUB_ENV"
 
       - name: Publicar release "gtfs"
-        if: contains(steps.check.outputs.changed, 'true')
+        if: steps.check.outputs.changed == 'true'
         uses: softprops/action-gh-release@v2
         with:
           tag_name: gtfs
@@ -51,7 +61,7 @@ jobs:
             data/manifest.json
 
       - name: Guardar estado de origen
-        if: contains(steps.check.outputs.changed, 'true')
+        if: steps.check.outputs.changed == 'true'
         run: |
           git config user.name "gtfs-bot"
           git config user.email "gtfs-bot@users.noreply.github.com"
