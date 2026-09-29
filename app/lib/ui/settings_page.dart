@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 
 import '../data/data_updater.dart';
 import 'data_update_ui.dart';
+import 'help_page.dart';
 import 'reliability_page.dart';
 
 /// Ajustes: información de los datos, preferencia solo-WiFi y comprobación manual.
@@ -67,6 +68,16 @@ class _SettingsPageState extends State<SettingsPage> {
       appBar: AppBar(title: const Text('Ajustes')),
       body: ListView(
         children: [
+          const _SectionTitle('Ayuda'),
+          ListTile(
+            leading: const Icon(Icons.help_outline),
+            title: const Text('Cómo funciona la app'),
+            subtitle: const Text('Guía de uso y solución de problemas.'),
+            trailing: const Icon(Icons.chevron_right),
+            onTap: () => Navigator.of(context).push(MaterialPageRoute(
+              builder: (_) => const HelpPage(),
+            )),
+          ),
           const _SectionTitle('Alarma'),
           ListTile(
             leading: const Icon(Icons.health_and_safety),

@@ -2,6 +2,10 @@
 
 Versiones de **prueba** (beta). App no oficial de guaguas de Tenerife.
 
+## v0.1.8
+- **Ayuda dentro de la app** (icono «?» arriba, en Ajustes y en el inicio):
+  explica qué es, cómo se usa y cómo resolver problemas, sin salir de la app.
+
 ## v0.1.7
 - La **alarma suena aunque el móvil esté en silencio** (usa el canal de alarma),
   con un **tono propio** y en **bucle** hasta que pulses «Silenciar» o «Ya lo tengo».

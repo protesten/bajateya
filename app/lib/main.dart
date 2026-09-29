@@ -9,6 +9,7 @@ import 'alarm/trip_plan.dart';
 import 'data/favorites.dart';
 import 'ui/alarm_entry.dart';
 import 'ui/data_update_ui.dart';
+import 'ui/help_page.dart';
 import 'ui/map_page.dart';
 import 'ui/settings_page.dart';
 import 'ui/tracking_page.dart';
@@ -213,6 +214,13 @@ class _StopSearchPageState extends State<StopSearchPage> {
         title: const Text('Bájate Aquí'),
         actions: [
           IconButton(
+            icon: const Icon(Icons.help_outline),
+            tooltip: 'Ayuda',
+            onPressed: () => Navigator.of(context).push(MaterialPageRoute(
+              builder: (_) => const HelpPage(),
+            )),
+          ),
+          IconButton(
             icon: const Icon(Icons.settings),
             tooltip: 'Ajustes',
             onPressed: () => Navigator.of(context).push(MaterialPageRoute(
@@ -305,6 +313,15 @@ class _StopSearchPageState extends State<StopSearchPage> {
                       'Durante el viaje también puedes «avisar a alguien» por '
                       'WhatsApp/SMS.',
                       style: TextStyle(fontSize: 13)),
+                  Align(
+                    alignment: Alignment.centerLeft,
+                    child: TextButton.icon(
+                      onPressed: () => Navigator.of(context).push(
+                          MaterialPageRoute(builder: (_) => const HelpPage())),
+                      icon: const Icon(Icons.help_outline, size: 18),
+                      label: const Text('Cómo funciona la app'),
+                    ),
+                  ),
                 ],
               ),
             ),
