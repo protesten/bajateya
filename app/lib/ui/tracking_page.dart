@@ -80,65 +80,81 @@ class _TrackingPageState extends State<TrackingPage> {
       appBar: AppBar(title: Text('Línea ${widget.plan.lineName}')),
       body: Column(
         children: [
-          SizedBox(height: 240, child: _tripMap()),
+          SizedBox(height: 200, child: _tripMap()),
+          // Zona de información desplazable (evita que se corte en pantallas
+          // pequeñas o con teclado/barras del sistema).
           Expanded(
-            child: Padding(
-              padding: const EdgeInsets.all(20),
+            child: SingleChildScrollView(
+              padding: const EdgeInsets.fromLTRB(20, 16, 20, 8),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.stretch,
                 children: [
                   Text('Te bajas en',
                       style: Theme.of(context).textTheme.titleMedium),
                   Text(dest,
-                style: Theme.of(context)
-                    .textTheme
-                    .headlineSmall
-                    ?.copyWith(fontWeight: FontWeight.bold)),
-            const SizedBox(height: 24),
-            if (_ringing || _arrived)
-              Card(
-                color: Theme.of(context).colorScheme.errorContainer,
-                child: const Padding(
-                  padding: EdgeInsets.all(20),
-                  child: Row(children: [
-                    Icon(Icons.notifications_active, size: 32),
-                    SizedBox(width: 12),
-                    Expanded(
-                      child: Text('¡Prepárate para bajar!',
-                          style: TextStyle(
-                              fontSize: 20, fontWeight: FontWeight.bold)),
+                      style: Theme.of(context)
+                          .textTheme
+                          .headlineSmall
+                          ?.copyWith(fontWeight: FontWeight.bold)),
+                  const SizedBox(height: 16),
+                  if (_ringing || _arrived)
+                    Card(
+                      color: Theme.of(context).colorScheme.errorContainer,
+                      child: const Padding(
+                        padding: EdgeInsets.all(20),
+                        child: Row(children: [
+                          Icon(Icons.notifications_active, size: 32),
+                          SizedBox(width: 12),
+                          Expanded(
+                            child: Text('¡Prepárate para bajar!',
+                                style: TextStyle(
+                                    fontSize: 20, fontWeight: FontWeight.bold)),
+                          ),
+                        ]),
+                      ),
                     ),
-                  ]),
-                ),
-              ),
-            if (_offRoute && !_ringing && !_arrived)
-              Card(
-                color: Theme.of(context).colorScheme.tertiaryContainer,
-                child: const Padding(
-                  padding: EdgeInsets.all(12),
-                  child: Row(children: [
-                    Icon(Icons.help_outline),
-                    SizedBox(width: 8),
-                    Expanded(
-                      child: Text(
-                          'Posición incierta. Comprueba que vas en el sentido correcto.'),
+                  if (_offRoute && !_ringing && !_arrived)
+                    Card(
+                      color: Theme.of(context).colorScheme.tertiaryContainer,
+                      child: const Padding(
+                        padding: EdgeInsets.all(12),
+                        child: Row(children: [
+                          Icon(Icons.help_outline),
+                          SizedBox(width: 8),
+                          Expanded(
+                            child: Text(
+                                'Posición incierta. Comprueba que vas en el sentido correcto.'),
+                          ),
+                        ]),
+                      ),
                     ),
-                  ]),
-                ),
-              ),
-            const SizedBox(height: 12),
-            _metric('Paradas restantes',
-                _stopsRemaining == null ? '—' : '$_stopsRemaining'),
-            _metric('Distancia',
-                _metersRemaining == null
-                    ? '—'
-                    : '${_metersRemaining!.round()} m'),
+                  const SizedBox(height: 8),
+                  _metric('Paradas restantes',
+                      _stopsRemaining == null ? '—' : '$_stopsRemaining'),
+                  _metric('Distancia',
+                      _metersRemaining == null
+                          ? '—'
+                          : '${_metersRemaining!.round()} m'),
                   _metric('Tiempo estimado', eta),
-                  const Spacer(),
+                ],
+              ),
+            ),
+          ),
+          // Botones siempre visibles, respetando la barra de gestos.
+          SafeArea(
+            top: false,
+            child: Padding(
+              padding: const EdgeInsets.fromLTRB(20, 4, 20, 8),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                mainAxisSize: MainAxisSize.min,
+                children: [
                   FilledButton.tonalIcon(
                     onPressed: _shareTrip,
                     icon: const Icon(Icons.share),
-                    label: Text(_arrived ? 'Avisar de que he llegado' : 'Avisar a alguien'),
+                    label: Text(_arrived
+                        ? 'Avisar de que he llegado'
+                        : 'Avisar a alguien'),
                   ),
                   const SizedBox(height: 8),
                   OutlinedButton.icon(

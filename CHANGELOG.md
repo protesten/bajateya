@@ -1,0 +1,33 @@
+# Novedades por versión — Bájate Aquí
+
+Versiones de **prueba** (beta). App no oficial de guaguas de Tenerife.
+
+## v0.1.4
+- **Avisar a alguien**: durante el viaje puedes mandar por WhatsApp/SMS un mensaje
+  con tu línea y destino ("te aviso al llegar"). Útil para avisar a familiares.
+- **Última guagua de hoy**: en la pestaña *Horario* de una parada, botón que muestra
+  la última salida del día de cada línea (para no quedarte tirado de noche).
+- Arreglado: los botones de la pantalla de seguimiento ya no se cortan; la
+  información hace scroll y los botones quedan fijos abajo.
+
+## v0.1.3
+- **Horario sin conexión**: cada parada tiene una pestaña *Horario* con las próximas
+  salidas teóricas (calculadas del horario oficial). Funciona aunque no haya
+  cobertura o el tiempo real no responda.
+
+## v0.1.2
+- **Buscador dentro del selector de líneas**: en paradas con muchas líneas
+  (intercambiadores) ahora puedes filtrar por número o destino.
+- **Favoritos de paradas**: marca una parada con la estrella ⭐ y aparece en la
+  pantalla de inicio para acceso rápido. Sin registro.
+
+## v0.1.1
+- Arregladas las **líneas repetidas** en el selector.
+- **Búsqueda por código de parada** (además de por nombre).
+- Ahora puedes **tocar una llegada** para crear su alarma directamente.
+- **Detener la alarma**: aviso "Alarma activa" con botón *Detener* en la app y en la
+  notificación (antes el GPS podía quedarse activo).
+
+## v0.1.0
+- Primera versión de prueba: buscar paradas, ver llegadas en tiempo real, mapa de
+  paradas, y la **alarma de bajada** con seguimiento en segundo plano.

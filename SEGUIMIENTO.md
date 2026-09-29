@@ -31,6 +31,7 @@ Leyenda: ✅ hecho · 🚧 en curso · ⬜ pendiente
 | **Buscador en selector de líneas + Favoritos (v0.1.2)** | ✅ (APK ok) |
 | **Motor de horarios GTFS + pestaña Horario (v0.1.3)** | ✅ (APK ok) |
 | **Avisar a alguien + Última guagua (v0.1.4)** | ✅ (APK ok) |
+| **Fix botones seguimiento + Guía/Changelog (v0.1.5)** | ✅ (APK ok) |
 | Backlog de ideas (senderos, ¿cuándo salgo?) | 📋 docs/09 |
 | Planificador de rutas | ⬜ |
 | Multidioma | ⬜ |
@@ -344,6 +345,19 @@ Leyenda: ✅ hecho · 🚧 en curso · ⬜ pendiente
   expediciones pasada medianoche), marcando en rojo las que ya pasaron. Validado a
   las 22:30 contra la BD (p. ej. L50 última 00:14). Evita quedarse tirado.
 - **Verificado:** `flutter analyze` limpio, APK v0.1.4 compilado.
+
+### 21. Fix pantalla de seguimiento + Guía de usuario y Changelog (v0.1.5) ✅
+- **Fix UI:** en la pantalla de seguimiento los botones se salían de pantalla.
+  Ahora la info hace scroll (`SingleChildScrollView`), el mapa mide 200 px y los
+  botones quedan fijos abajo en un `SafeArea` (respetan la barra de gestos).
+- **Guía de usuario** (`docs/GUIA-USUARIO.md`) y **Changelog** (`CHANGELOG.md`):
+  qué es la app y cómo usarla, más los cambios por versión. Canónicos y
+  versionados en el repo.
+- **Página web compartible** (Artifact) con la guía + novedades, para pasar a las
+  personas que ayuden en las pruebas. Se actualiza en el mismo enlace cada versión.
+  *(Privada: hay que compartirla desde el menú Share de la página para que otros
+  la abran.)*
+- **Verificado:** `flutter analyze` limpio, APK v0.1.5 compilado.
 
 ---
 
