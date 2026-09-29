@@ -65,6 +65,8 @@ class _StopSearchPageState extends State<StopSearchPage> {
   int? _selected;
   Map<String, Object?>? _selectedRow; // parada seleccionada (para favorito)
   bool _selectedIsFav = false;
+  bool _showSchedule = false; // pestaña Tiempo real / Horario
+  List<ScheduledPassing> _schedule = const [];
   String? _error;
   List<FavStop> _favs = const [];
   final _updater =
@@ -175,6 +177,11 @@ class _StopSearchPageState extends State<StopSearchPage> {
     if (mounted) setState(() => _selectedIsFav = now);
   }
 
+  Future<void> _loadSchedule(int stopId) async {
+    final s = await _db.scheduleAtStop(stopId, DateTime.now());
+    if (mounted) setState(() => _schedule = s);
+  }
+
   Future<void> _loadArrivals(int stopId, {Map<String, Object?>? row}) async {
     _refreshActiveTrip(); // mantiene el aviso de alarma activa al día
     final fav = await Favorites.isFavorite(stopId);
@@ -184,7 +191,9 @@ class _StopSearchPageState extends State<StopSearchPage> {
       _selectedIsFav = fav;
       _error = null;
       _arrivals = const [];
+      _schedule = const [];
     });
+    _loadSchedule(stopId); // horario teórico en paralelo (offline)
     try {
       final a = await _rt.arrivals(stopId);
       setState(() => _arrivals = a);
@@ -353,41 +362,86 @@ class _StopSearchPageState extends State<StopSearchPage> {
             ],
           ),
         ),
-        if (_error != null)
+        Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
+          child: SegmentedButton<bool>(
+            segments: const [
+              ButtonSegment(value: false, label: Text('Tiempo real'), icon: Icon(Icons.wifi)),
+              ButtonSegment(value: true, label: Text('Horario'), icon: Icon(Icons.schedule)),
+            ],
+            selected: {_showSchedule},
+            onSelectionChanged: (s) => setState(() => _showSchedule = s.first),
+          ),
+        ),
+        if (_error != null && !_showSchedule)
           Padding(
             padding: const EdgeInsets.all(16),
             child: Text(_error!, style: const TextStyle(color: Colors.red)),
           ),
         Expanded(
-          child: ListView(
-            children: [
-              if (_arrivals.isNotEmpty)
-                const Padding(
-                  padding: EdgeInsets.fromLTRB(16, 4, 16, 4),
-                  child: Text('Toca una línea para crear su alarma de bajada.',
-                      style: TextStyle(fontSize: 12, color: Colors.grey)),
-                ),
-              for (final a in _arrivals)
-                ListTile(
-                  leading: CircleAvatar(child: Text('${a.lineId}')),
-                  title: Text(a.lineDestination),
-                  trailing: Text('${a.minutesLeft} min',
-                      style: const TextStyle(
-                          fontSize: 18, fontWeight: FontWeight.bold)),
-                  onTap: () =>
-                      chooseLineForAlarm(context, _db, _selected!, onlyLine: a.lineId),
-                ),
-              if (_arrivals.isEmpty && _error == null)
-                const Padding(
-                  padding: EdgeInsets.all(24),
-                  child: Center(child: Text('Sin llegadas próximas.')),
-                ),
-            ],
-          ),
+          child: _showSchedule ? _scheduleList() : _realtimeList(),
         ),
       ],
     );
   }
+
+  Widget _realtimeList() => ListView(
+        children: [
+          if (_arrivals.isNotEmpty)
+            const Padding(
+              padding: EdgeInsets.fromLTRB(16, 4, 16, 4),
+              child: Text('Toca una línea para crear su alarma de bajada.',
+                  style: TextStyle(fontSize: 12, color: Colors.grey)),
+            ),
+          for (final a in _arrivals)
+            ListTile(
+              leading: CircleAvatar(child: Text('${a.lineId}')),
+              title: Text(a.lineDestination),
+              trailing: Text('${a.minutesLeft} min',
+                  style: const TextStyle(
+                      fontSize: 18, fontWeight: FontWeight.bold)),
+              onTap: () =>
+                  chooseLineForAlarm(context, _db, _selected!, onlyLine: a.lineId),
+            ),
+          if (_arrivals.isEmpty && _error == null)
+            const Padding(
+              padding: EdgeInsets.all(24),
+              child: Center(child: Text('Sin llegadas próximas.')),
+            ),
+          if (_arrivals.isEmpty && _error != null)
+            const Padding(
+              padding: EdgeInsets.all(16),
+              child: Text('Sin tiempo real. Prueba la pestaña "Horario".',
+                  textAlign: TextAlign.center, style: TextStyle(color: Colors.grey)),
+            ),
+        ],
+      );
+
+  Widget _scheduleList() => ListView(
+        children: [
+          const Padding(
+            padding: EdgeInsets.fromLTRB(16, 4, 16, 4),
+            child: Text('Salidas teóricas (horario oficial, funciona sin conexión).',
+                style: TextStyle(fontSize: 12, color: Colors.grey)),
+          ),
+          for (final s in _schedule)
+            ListTile(
+              leading: CircleAvatar(child: Text(s.lineName)),
+              title: Text(s.headsign),
+              subtitle: Text(s.hhmm),
+              trailing: Text('${s.minutes} min',
+                  style: const TextStyle(
+                      fontSize: 16, fontWeight: FontWeight.bold)),
+              onTap: () => chooseLineForAlarm(context, _db, _selected!,
+                  onlyLine: int.tryParse(s.lineName)),
+            ),
+          if (_schedule.isEmpty)
+            const Padding(
+              padding: EdgeInsets.all(24),
+              child: Center(child: Text('No hay más salidas programadas hoy.')),
+            ),
+        ],
+      );
 
   late final _LifecycleHook _lifecycle;
 

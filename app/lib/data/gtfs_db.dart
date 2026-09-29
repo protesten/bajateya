@@ -6,6 +6,20 @@ import 'package:sqflite/sqflite.dart';
 
 import '../alarm/get_off_alarm.dart';
 
+/// Un paso teórico (de horario) de una línea por una parada.
+class ScheduledPassing {
+  final int minutes;
+  final String hhmm;
+  final String lineName;
+  final String headsign;
+  const ScheduledPassing({
+    required this.minutes,
+    required this.hhmm,
+    required this.lineName,
+    required this.headsign,
+  });
+}
+
 /// Acceso de solo lectura a la base de datos GTFS empaquetada con la app.
 class GtfsDb {
   Database? _db;
@@ -48,6 +62,56 @@ class GtfsDb {
       WHERE lat BETWEEN ? AND ? AND lon BETWEEN ? AND ?
       LIMIT ?
     ''', [minLat, maxLat, minLon, maxLon, limit]);
+  }
+
+  /// Próximas salidas TEÓRICAS (horario GTFS) por una parada, a partir de
+  /// [when]. Funciona sin conexión. Devuelve minutos que faltan, hora HH:MM,
+  /// número de línea y destino.
+  ///
+  /// Calcula el paso = `trips.start_time + pattern_stops.time_offset`, filtrando
+  /// por los días de servicio (hoy y ayer, para expediciones pasada medianoche).
+  Future<List<ScheduledPassing>> scheduleAtStop(
+    int stopId,
+    DateTime when, {
+    int limit = 20,
+    int lookaheadMin = 180,
+  }) async {
+    final db = await _open();
+    int ymd(DateTime d) => d.year * 10000 + d.month * 100 + d.day;
+    final today = ymd(when);
+    final yesterday = ymd(when.subtract(const Duration(days: 1)));
+    final nowSec = when.hour * 3600 + when.minute * 60 + when.second;
+
+    final rows = await db.rawQuery('''
+      SELECT r.short_name AS sn, p.headsign AS hs,
+             t.start_time AS st, ps.time_offset AS off, sd.date AS d
+      FROM pattern_stops ps
+      JOIN patterns p ON p.pattern_id = ps.pattern_id
+      JOIN routes   r ON r.route_id   = p.route_id
+      JOIN trips    t ON t.pattern_id = ps.pattern_id
+      JOIN service_dates sd
+        ON sd.service_id = t.service_id AND sd.date IN (?, ?)
+      WHERE ps.stop_id = ?
+    ''', [today, yesterday, stopId]);
+
+    final out = <ScheduledPassing>[];
+    for (final r in rows) {
+      final fromYesterday = (r['d'] as int) == yesterday;
+      final passingSec =
+          (r['st'] as int) + (r['off'] as int) - (fromYesterday ? 86400 : 0);
+      final mins = ((passingSec - nowSec) / 60).round();
+      if (mins < 0 || mins > lookaheadMin) continue;
+      final hh = ((passingSec ~/ 3600) % 24).toString().padLeft(2, '0');
+      final mm = ((passingSec % 3600) ~/ 60).toString().padLeft(2, '0');
+      out.add(ScheduledPassing(
+        minutes: mins,
+        hhmm: '$hh:$mm',
+        lineName: '${r['sn']}',
+        headsign: '${r['hs']}',
+      ));
+    }
+    out.sort((a, b) => a.minutes.compareTo(b.minutes));
+    return out.take(limit).toList();
   }
 
   /// Una parada por su id.

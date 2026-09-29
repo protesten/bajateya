@@ -29,7 +29,8 @@ Leyenda: ✅ hecho · 🚧 en curso · ⬜ pendiente
 | **APK de prueba (release universal) + guía** | ✅ v0.1.1 |
 | **Correcciones del feedback (v0.1.1)** | ✅ (APK ok) |
 | **Buscador en selector de líneas + Favoritos (v0.1.2)** | ✅ (APK ok) |
-| Backlog de ideas (senderos, ¿cuándo salgo?, etc.) | 📋 docs/09 |
+| **Motor de horarios GTFS + pestaña Horario (v0.1.3)** | ✅ (APK ok) |
+| Backlog de ideas (senderos, ¿cuándo salgo?, avisar a alguien) | 📋 docs/09 |
 | Planificador de rutas | ⬜ |
 | Multidioma | ⬜ |
 | Publicación / clave idApp definitiva | ⬜ |
@@ -314,6 +315,22 @@ Leyenda: ✅ hecho · 🚧 en curso · ⬜ pendiente
   `docs/09-ideas-ampliacion.md`: "¿Cuándo salgo?", senderos + última guagua,
   ocupación de zonas recreativas, observatorio de puntualidad, Wear OS,
   Live Activities, asistente por voz, MCP, monetización B2B, etc.
+
+### 19. Motor de horarios desde el GTFS (v0.1.3) ✅
+- **`GtfsDb.scheduleAtStop(stopId, when)`**: próximas salidas **teóricas** por una
+  parada. Calcula `trips.start_time + pattern_stops.time_offset`, filtrando por
+  días de servicio (hoy y ayer, para expediciones pasada medianoche). Devuelve
+  minutos, hora HH:MM, línea y destino. **Funciona sin conexión.**
+- **Rendimiento:** prototipo validado contra la BD → 18 ms incluso en el mayor
+  intercambiador (3.020 filas de join). Correcto vs. horario real.
+- **UI:** en la pantalla de parada, **selector "Tiempo real / Horario"**. La
+  pestaña Horario muestra las salidas teóricas (offline) y también permite crear
+  la alarma tocando una línea. Si el SAE no responde, se sugiere el Horario.
+- **Desbloquea** las ideas del backlog: "¿Cuándo salgo?", "última guagua de
+  vuelta" y el modo "Excursiones en guagua" (senderos).
+- **Verificado:** `flutter analyze` limpio, APK v0.1.3 compilado.
+- **Idea añadida al backlog:** "Cuídame el viaje" / avisar a alguien de la
+  llegada (docs/09), fase 1 sin backend (compartir por WhatsApp/SMS).
 
 ---
 

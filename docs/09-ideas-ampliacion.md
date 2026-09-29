@@ -3,6 +3,17 @@
 Ideas para valorar más adelante. No implementadas todavía. Priorización orientativa.
 
 ## Funciones de usuario
+- **"Cuídame el viaje" / avisar a alguien de la llegada**: notificar a un familiar
+  (padres, hijos, personas mayores) cuando el usuario **se baja en su parada** de
+  destino. *(Ya señalada por el panel multi-modelo, docs/07 idea #7.)*
+  - **Fase 1 (sin backend, hacer pronto):** al iniciar/terminar el viaje, botón
+    "Avisar a…" que abre WhatsApp/SMS con un mensaje preparado ("Voy en la 110
+    hacia Los Cristianos, parada El Camisón; te aviso al llegar"). Cero
+    infraestructura, alto valor social; **justifica el permiso de ubicación en
+    segundo plano ante App Store**.
+  - **Fase 2 (con backend):** enlace temporal de seguimiento en vivo que expira,
+    y aviso automático al llegar. Reposiciona la app como herramienta de
+    **accesibilidad/cuidado** (ayuda a la relación institucional con el Cabildo).
 - **"¿Cuándo salgo?"**: le dices la hora a la que quieres llegar y te avisa cuándo
   salir, teniendo en cuenta retrasos, transbordos e incidencias. *(Alto valor;
   requiere planificador con horarios GTFS + tiempo real.)*
