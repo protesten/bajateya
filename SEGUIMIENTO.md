@@ -34,6 +34,8 @@ Leyenda: ✅ hecho · 🚧 en curso · ⬜ pendiente
 | **Fix botones seguimiento + Guía/Changelog (v0.1.5)** | ✅ (APK ok) |
 | **Fix borrado búsqueda + inicio explicativo (v0.1.6)** | ✅ (APK ok) |
 | **Sonido de alarma propio (silencio + bucle) (v0.1.7)** | ✅ (APK ok) |
+| **Ayuda dentro de la app (v0.1.8)** | ✅ (APK ok) |
+| **Menú de navegación inferior (v0.1.9)** | ✅ (APK ok) |
 | Backlog de ideas (senderos, ¿cuándo salgo?) | 📋 docs/09 |
 | Planificador de rutas | ⬜ |
 | Multidioma | ⬜ |
@@ -380,6 +382,23 @@ Leyenda: ✅ hecho · 🚧 en curso · ⬜ pendiente
 - **Verificado:** `flutter analyze` limpio, APK v0.1.7 compilado con el recurso.
 - **Nota para testers:** conviene **reinstalar** para recrear el canal con el nuevo
   sonido (el cambio de id lo cubre, pero reinstalar lo garantiza).
+
+### 23. Ayuda in-app (v0.1.8) y menú inferior (v0.1.9) ✅
+- **Ayuda dentro de la app** (`lib/ui/help_page.dart`): secciones desplegables con
+  qué es, fiabilidad de la alarma (con acceso directo), buscar, llegadas/horario/
+  última guagua, poner la alarma, avisar a alguien y problemas. Accesible desde el
+  icono «?» de Inicio, desde Ajustes y desde la tarjeta de bienvenida.
+- **Menú de navegación inferior** (`RootPage` en `main.dart`): pestañas
+  **Inicio · Favoritas · Mapa · Ajustes** (NavigationBar + IndexedStack).
+  - Detalle de parada extraído a `lib/ui/stop_detail_page.dart` (llegadas/horario/
+    última guagua/alarma/favorita), abierto desde Inicio, Favoritas y Mapa con un
+    `TitsaRealtime` y `GtfsDb` compartidos.
+  - Aviso de **"Alarma activa"** persistente sobre todas las pestañas, refrescado
+    por `AlarmService.tripRevision` (ValueNotifier) y el ciclo de vida.
+  - **Favoritos reactivos** (`Favorites.revision`): Inicio y Favoritas se
+    actualizan solos; pestaña Favoritas con **deslizar para borrar**.
+  - Mapa: nueva opción "Ver llegadas y horario".
+- **Verificado:** `flutter analyze` limpio, 6 tests pasan, APK v0.1.9 compilado.
 
 ---
 
