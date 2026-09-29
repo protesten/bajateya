@@ -30,7 +30,8 @@ Leyenda: ✅ hecho · 🚧 en curso · ⬜ pendiente
 | **Correcciones del feedback (v0.1.1)** | ✅ (APK ok) |
 | **Buscador en selector de líneas + Favoritos (v0.1.2)** | ✅ (APK ok) |
 | **Motor de horarios GTFS + pestaña Horario (v0.1.3)** | ✅ (APK ok) |
-| Backlog de ideas (senderos, ¿cuándo salgo?, avisar a alguien) | 📋 docs/09 |
+| **Avisar a alguien + Última guagua (v0.1.4)** | ✅ (APK ok) |
+| Backlog de ideas (senderos, ¿cuándo salgo?) | 📋 docs/09 |
 | Planificador de rutas | ⬜ |
 | Multidioma | ⬜ |
 | Publicación / clave idApp definitiva | ⬜ |
@@ -331,6 +332,18 @@ Leyenda: ✅ hecho · 🚧 en curso · ⬜ pendiente
 - **Verificado:** `flutter analyze` limpio, APK v0.1.3 compilado.
 - **Idea añadida al backlog:** "Cuídame el viaje" / avisar a alguien de la
   llegada (docs/09), fase 1 sin backend (compartir por WhatsApp/SMS).
+
+### 20. "Avisar a alguien" (Cuídame el viaje) + "Última guagua" (v0.1.4) ✅
+- **Avisar a alguien** (`tracking_page.dart`, `share_plus`): botón en la pantalla
+  de seguimiento que abre el compartir del sistema (WhatsApp/SMS/…) con un mensaje
+  preparado ("Voy en la línea X hacia Y; te aviso al llegar", con ETA si hay). Al
+  llegar cambia a "Avisar de que he llegado". Fase 1 sin backend; útil para avisar
+  a familiares y **justifica el permiso de ubicación en 2º plano ante Apple**.
+- **Última guagua de hoy** (`GtfsDb.lastDeparturesAtStop` + botón en la pestaña
+  Horario): muestra, por línea+destino, la **última salida del día** (incluye
+  expediciones pasada medianoche), marcando en rojo las que ya pasaron. Validado a
+  las 22:30 contra la BD (p. ej. L50 última 00:14). Evita quedarse tirado.
+- **Verificado:** `flutter analyze` limpio, APK v0.1.4 compilado.
 
 ---
 

@@ -26,6 +26,7 @@ dependencies:
   flutter_map: ^7.0.2    # mapa (teselas OSM, sin clave de pago)
   latlong2: ^0.9.1       # coordenadas para flutter_map
   device_info_plus: ^11.1.0  # fabricante del dispositivo (guía anti-OEM killers)
+  share_plus: ^10.1.2    # compartir el viaje por WhatsApp/SMS ("avisar a alguien")
 
 dev_dependencies:
   flutter_test:

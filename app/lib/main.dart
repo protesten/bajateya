@@ -417,10 +417,66 @@ class _StopSearchPageState extends State<StopSearchPage> {
         ],
       );
 
+  Future<void> _showLastDepartures() async {
+    final id = _selected;
+    if (id == null) return;
+    final last = await _db.lastDeparturesAtStop(id, DateTime.now());
+    if (!mounted) return;
+    showModalBottomSheet<void>(
+      context: context,
+      isScrollControlled: true,
+      builder: (_) => DraggableScrollableSheet(
+        expand: false,
+        initialChildSize: 0.7,
+        builder: (_, controller) => ListView(
+          controller: controller,
+          children: [
+            const Padding(
+              padding: EdgeInsets.fromLTRB(16, 14, 16, 4),
+              child: Text('Última guagua de hoy',
+                  style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
+            ),
+            const Padding(
+              padding: EdgeInsets.fromLTRB(16, 0, 16, 8),
+              child: Text('En rojo, las que ya han pasado.',
+                  style: TextStyle(fontSize: 12, color: Colors.grey)),
+            ),
+            for (final s in last)
+              ListTile(
+                leading: CircleAvatar(child: Text(s.lineName)),
+                title: Text(s.headsign),
+                subtitle: Text('Última a las ${s.hhmm}'),
+                trailing: Text(
+                  s.minutes < 0 ? 'ya pasó' : 'en ${s.minutes} min',
+                  style: TextStyle(
+                    fontWeight: FontWeight.bold,
+                    color: s.minutes < 0 ? Colors.red : null,
+                  ),
+                ),
+              ),
+            if (last.isEmpty)
+              const Padding(
+                padding: EdgeInsets.all(24),
+                child: Center(child: Text('No hay datos de salidas para hoy.')),
+              ),
+          ],
+        ),
+      ),
+    );
+  }
+
   Widget _scheduleList() => ListView(
         children: [
+          Padding(
+            padding: const EdgeInsets.fromLTRB(12, 8, 12, 0),
+            child: OutlinedButton.icon(
+              onPressed: _showLastDepartures,
+              icon: const Icon(Icons.nightlight_round),
+              label: const Text('¿Cuál es la última guagua de hoy?'),
+            ),
+          ),
           const Padding(
-            padding: EdgeInsets.fromLTRB(16, 4, 16, 4),
+            padding: EdgeInsets.fromLTRB(16, 8, 16, 4),
             child: Text('Salidas teóricas (horario oficial, funciona sin conexión).',
                 style: TextStyle(fontSize: 12, color: Colors.grey)),
           ),

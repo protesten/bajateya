@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_map/flutter_map.dart';
 import 'package:latlong2/latlong.dart' as ll;
+import 'package:share_plus/share_plus.dart';
 
 import '../alarm/alarm_service.dart';
 import '../alarm/get_off_alarm.dart' show LatLng;
@@ -56,6 +57,19 @@ class _TrackingPageState extends State<TrackingPage> {
   Future<void> _stop() async {
     await AlarmService.stop();
     if (mounted) Navigator.of(context).pop();
+  }
+
+  /// "Cuídame el viaje": comparte el viaje por WhatsApp/SMS/etc. (fase 1).
+  Future<void> _shareTrip() async {
+    final p = widget.plan;
+    final eta = _etaSeconds != null
+        ? ' Llego en ~${(_etaSeconds! / 60).ceil()} min.'
+        : '';
+    final msg = _arrived
+        ? 'He llegado a ${p.destination.name} (línea ${p.lineName}). 🚌'
+        : 'Voy en la guagua línea ${p.lineName} hacia ${p.destination.name}.'
+            '$eta Te aviso al llegar. 🚌';
+    await Share.share(msg, subject: 'Mi viaje en guagua');
   }
 
   @override
@@ -121,6 +135,12 @@ class _TrackingPageState extends State<TrackingPage> {
                     : '${_metersRemaining!.round()} m'),
                   _metric('Tiempo estimado', eta),
                   const Spacer(),
+                  FilledButton.tonalIcon(
+                    onPressed: _shareTrip,
+                    icon: const Icon(Icons.share),
+                    label: Text(_arrived ? 'Avisar de que he llegado' : 'Avisar a alguien'),
+                  ),
+                  const SizedBox(height: 8),
                   OutlinedButton.icon(
                     onPressed: _stop,
                     icon: const Icon(Icons.stop),

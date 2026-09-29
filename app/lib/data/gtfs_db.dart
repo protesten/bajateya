@@ -114,6 +114,65 @@ class GtfsDb {
     return out.take(limit).toList();
   }
 
+  /// **Última salida del día** por cada línea+destino en una parada.
+  /// Útil para no quedarse tirado ("¿cuál es la última guagua de vuelta?").
+  /// Incluye expediciones pasada la medianoche. `minutes` puede ser negativo si
+  /// la última ya pasó.
+  Future<List<ScheduledPassing>> lastDeparturesAtStop(
+      int stopId, DateTime when) async {
+    final db = await _open();
+    int ymd(DateTime d) => d.year * 10000 + d.month * 100 + d.day;
+    final today = ymd(when);
+    final yesterday = ymd(when.subtract(const Duration(days: 1)));
+    final nowSec = when.hour * 3600 + when.minute * 60 + when.second;
+
+    final rows = await db.rawQuery('''
+      SELECT r.short_name AS sn, p.headsign AS hs,
+             t.start_time AS st, ps.time_offset AS off, sd.date AS d
+      FROM pattern_stops ps
+      JOIN patterns p ON p.pattern_id = ps.pattern_id
+      JOIN routes   r ON r.route_id   = p.route_id
+      JOIN trips    t ON t.pattern_id = ps.pattern_id
+      JOIN service_dates sd
+        ON sd.service_id = t.service_id AND sd.date IN (?, ?)
+      WHERE ps.stop_id = ?
+    ''', [today, yesterday, stopId]);
+
+    // Máximo paso por (línea, destino).
+    final lastByKey = <String, int>{};
+    final meta = <String, List<String>>{};
+    for (final r in rows) {
+      final fromYesterday = (r['d'] as int) == yesterday;
+      final passingSec =
+          (r['st'] as int) + (r['off'] as int) - (fromYesterday ? 86400 : 0);
+      // Ignora expediciones de ayer que ya quedaron muy atrás (madrugada previa).
+      if (passingSec < nowSec - 120) continue;
+      final key = '${r['sn']}|${r['hs']}';
+      if (!lastByKey.containsKey(key) || passingSec > lastByKey[key]!) {
+        lastByKey[key] = passingSec;
+        meta[key] = ['${r['sn']}', '${r['hs']}'];
+      }
+    }
+
+    final out = <ScheduledPassing>[];
+    lastByKey.forEach((key, sec) {
+      final hh = ((sec ~/ 3600) % 24).toString().padLeft(2, '0');
+      final mm = ((sec % 3600) ~/ 60).toString().padLeft(2, '0');
+      out.add(ScheduledPassing(
+        minutes: ((sec - nowSec) / 60).round(),
+        hhmm: '$hh:$mm',
+        lineName: meta[key]![0],
+        headsign: meta[key]![1],
+      ));
+    });
+    out.sort((a, b) {
+      final an = int.tryParse(a.lineName) ?? 9999;
+      final bn = int.tryParse(b.lineName) ?? 9999;
+      return an != bn ? an.compareTo(bn) : a.headsign.compareTo(b.headsign);
+    });
+    return out;
+  }
+
   /// Una parada por su id.
   Future<Map<String, Object?>?> stopById(int stopId) async {
     final db = await _open();
