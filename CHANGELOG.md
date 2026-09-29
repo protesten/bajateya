@@ -31,3 +31,9 @@ Versiones de **prueba** (beta). App no oficial de guaguas de Tenerife.
 ## v0.1.0
 - Primera versión de prueba: buscar paradas, ver llegadas en tiempo real, mapa de
   paradas, y la **alarma de bajada** con seguimiento en segundo plano.
+
+## v0.1.6
+- Nuevo inicio que explica las funciones (llegadas, horario, última guagua,
+  alarma, favoritas) y muestra tus paradas favoritas.
+- Arreglado: al borrar el cuadro de búsqueda vuelve la pantalla de inicio (antes
+  se quedaban los resultados anteriores).

@@ -151,9 +151,13 @@ class _StopSearchPageState extends State<StopSearchPage> {
   }
 
   Future<void> _search(String q) async {
-    if (q.trim().length < 2) return;
+    // Al vaciar o dejar 1 carácter, limpia resultados y vuelven las favoritas.
+    if (q.trim().length < 2) {
+      if (_stops.isNotEmpty) setState(() => _stops = const []);
+      return;
+    }
     final r = await _db.searchStops(q.trim());
-    setState(() => _stops = r);
+    if (mounted) setState(() => _stops = r);
   }
 
   Future<void> _loadFavorites() async {
@@ -241,7 +245,7 @@ class _StopSearchPageState extends State<StopSearchPage> {
           if (_selected == null)
             Expanded(
               child: _stops.isEmpty
-                  ? _favoritesList()
+                  ? _homeView()
                   : ListView.builder(
                       itemCount: _stops.length,
                       itemBuilder: (_, i) {
@@ -263,35 +267,71 @@ class _StopSearchPageState extends State<StopSearchPage> {
     );
   }
 
-  Widget _favoritesList() {
-    if (_favs.isEmpty) {
-      return const Center(
-        child: Padding(
-          padding: EdgeInsets.all(32),
-          child: Text(
-            'Busca una parada por nombre o código.\n\nTus paradas favoritas '
-            'aparecerán aquí (marca la ⭐ en una parada).',
-            textAlign: TextAlign.center,
-            style: TextStyle(color: Colors.grey),
+  Widget _homeView() {
+    return ListView(
+      padding: const EdgeInsets.only(bottom: 90),
+      children: [
+        // Qué se puede hacer (las funciones viven dentro de una parada/viaje).
+        Padding(
+          padding: const EdgeInsets.fromLTRB(12, 8, 12, 4),
+          child: Card(
+            color: Theme.of(context).colorScheme.secondaryContainer,
+            elevation: 0,
+            child: Padding(
+              padding: const EdgeInsets.all(16),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  const Text('Busca tu parada para empezar',
+                      style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
+                  const SizedBox(height: 4),
+                  const Text(
+                      'Escribe el nombre o el código de la parada (arriba), o usa '
+                      'el botón Mapa. Al abrir una parada podrás:'),
+                  const SizedBox(height: 10),
+                  Wrap(
+                    spacing: 8,
+                    runSpacing: 8,
+                    children: const [
+                      _FeatureChip(Icons.wifi, 'Llegadas en tiempo real'),
+                      _FeatureChip(Icons.schedule, 'Horario sin conexión'),
+                      _FeatureChip(Icons.nightlight_round, 'Última guagua del día'),
+                      _FeatureChip(Icons.notifications_active, 'Alarma de bajada'),
+                      _FeatureChip(Icons.star, 'Guardar en favoritas'),
+                    ],
+                  ),
+                  const SizedBox(height: 6),
+                  const Text(
+                      'Durante el viaje también puedes «avisar a alguien» por '
+                      'WhatsApp/SMS.',
+                      style: TextStyle(fontSize: 13)),
+                ],
+              ),
+            ),
           ),
         ),
-      );
-    }
-    return ListView(
-      children: [
         const Padding(
-          padding: EdgeInsets.fromLTRB(16, 12, 16, 4),
-          child: Text('Favoritas',
+          padding: EdgeInsets.fromLTRB(16, 14, 16, 4),
+          child: Text('Tus paradas favoritas',
               style: TextStyle(fontWeight: FontWeight.bold)),
         ),
-        for (final f in _favs)
-          ListTile(
-            leading: const Icon(Icons.star, color: Colors.amber),
-            title: Text(f.name),
-            subtitle: Text('Parada ${f.id}'),
-            onTap: () => _loadArrivals(f.id,
-                row: {'stop_id': f.id, 'name': f.name, 'lat': f.lat, 'lon': f.lon}),
-          ),
+        if (_favs.isEmpty)
+          const Padding(
+            padding: EdgeInsets.fromLTRB(16, 4, 16, 16),
+            child: Text(
+                'Aún no tienes favoritas. Abre una parada y toca la estrella ⭐ '
+                'para guardarla aquí.',
+                style: TextStyle(color: Colors.grey)),
+          )
+        else
+          for (final f in _favs)
+            ListTile(
+              leading: const Icon(Icons.star, color: Colors.amber),
+              title: Text(f.name),
+              subtitle: Text('Parada ${f.id}'),
+              onTap: () => _loadArrivals(f.id,
+                  row: {'stop_id': f.id, 'name': f.name, 'lat': f.lat, 'lon': f.lon}),
+            ),
       ],
     );
   }
@@ -506,6 +546,31 @@ class _StopSearchPageState extends State<StopSearchPage> {
     WidgetsBinding.instance.removeObserver(_lifecycle);
     _rt.dispose();
     super.dispose();
+  }
+}
+
+/// Etiqueta con icono para explicar una función en la pantalla de inicio.
+class _FeatureChip extends StatelessWidget {
+  final IconData icon;
+  final String label;
+  const _FeatureChip(this.icon, this.label);
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+      decoration: BoxDecoration(
+        color: Theme.of(context).colorScheme.surface,
+        borderRadius: BorderRadius.circular(999),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(icon, size: 16),
+          const SizedBox(width: 6),
+          Text(label, style: const TextStyle(fontSize: 13)),
+        ],
+      ),
+    );
   }
 }
 
