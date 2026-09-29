@@ -6,6 +6,7 @@ import 'data/data_updater.dart';
 import 'data/gtfs_db.dart';
 import 'data/titsa_realtime.dart';
 import 'alarm/trip_plan.dart';
+import 'data/favorites.dart';
 import 'ui/alarm_entry.dart';
 import 'ui/data_update_ui.dart';
 import 'ui/map_page.dart';
@@ -62,7 +63,10 @@ class _StopSearchPageState extends State<StopSearchPage> {
   List<Map<String, Object?>> _stops = const [];
   List<Arrival> _arrivals = const [];
   int? _selected;
+  Map<String, Object?>? _selectedRow; // parada seleccionada (para favorito)
+  bool _selectedIsFav = false;
   String? _error;
+  List<FavStop> _favs = const [];
   final _updater =
       DataUpdater(manifestUrl: kManifestUrl, appVersion: kAppVersion);
 
@@ -72,6 +76,7 @@ class _StopSearchPageState extends State<StopSearchPage> {
     _maybeUpdateData();
     _maybeResumeTrip();
     _refreshActiveTrip();
+    _loadFavorites();
     // Refresca el aviso al volver a la app (p. ej. tras detener/llegar).
     _lifecycle = _LifecycleHook(_refreshActiveTrip);
     WidgetsBinding.instance.addObserver(_lifecycle);
@@ -149,10 +154,34 @@ class _StopSearchPageState extends State<StopSearchPage> {
     setState(() => _stops = r);
   }
 
-  Future<void> _loadArrivals(int stopId) async {
+  Future<void> _loadFavorites() async {
+    final f = await Favorites.list();
+    if (mounted) setState(() => _favs = f);
+  }
+
+  Future<void> _toggleFavorite() async {
+    final id = _selected;
+    if (id == null) return;
+    var row = _selectedRow;
+    row ??= await _db.stopById(id);
+    if (row == null) return;
+    final now = await Favorites.toggle(FavStop(
+      id,
+      row['name'] as String,
+      (row['lat'] as num).toDouble(),
+      (row['lon'] as num).toDouble(),
+    ));
+    await _loadFavorites();
+    if (mounted) setState(() => _selectedIsFav = now);
+  }
+
+  Future<void> _loadArrivals(int stopId, {Map<String, Object?>? row}) async {
     _refreshActiveTrip(); // mantiene el aviso de alarma activa al día
+    final fav = await Favorites.isFavorite(stopId);
     setState(() {
       _selected = stopId;
+      _selectedRow = row;
+      _selectedIsFav = fav;
       _error = null;
       _arrivals = const [];
     });
@@ -202,23 +231,59 @@ class _StopSearchPageState extends State<StopSearchPage> {
           ),
           if (_selected == null)
             Expanded(
-              child: ListView.builder(
-                itemCount: _stops.length,
-                itemBuilder: (_, i) {
-                  final s = _stops[i];
-                  return ListTile(
-                    leading: const Icon(Icons.directions_bus),
-                    title: Text(s['name'] as String),
-                    subtitle: Text('Parada ${s['stop_id']}'),
-                    onTap: () => _loadArrivals(s['stop_id'] as int),
-                  );
-                },
-              ),
+              child: _stops.isEmpty
+                  ? _favoritesList()
+                  : ListView.builder(
+                      itemCount: _stops.length,
+                      itemBuilder: (_, i) {
+                        final s = _stops[i];
+                        return ListTile(
+                          leading: const Icon(Icons.directions_bus),
+                          title: Text(s['name'] as String),
+                          subtitle: Text('Parada ${s['stop_id']}'),
+                          onTap: () =>
+                              _loadArrivals(s['stop_id'] as int, row: s),
+                        );
+                      },
+                    ),
             )
           else
             Expanded(child: _arrivalsView()),
         ],
       ),
+    );
+  }
+
+  Widget _favoritesList() {
+    if (_favs.isEmpty) {
+      return const Center(
+        child: Padding(
+          padding: EdgeInsets.all(32),
+          child: Text(
+            'Busca una parada por nombre o código.\n\nTus paradas favoritas '
+            'aparecerán aquí (marca la ⭐ en una parada).',
+            textAlign: TextAlign.center,
+            style: TextStyle(color: Colors.grey),
+          ),
+        ),
+      );
+    }
+    return ListView(
+      children: [
+        const Padding(
+          padding: EdgeInsets.fromLTRB(16, 12, 16, 4),
+          child: Text('Favoritas',
+              style: TextStyle(fontWeight: FontWeight.bold)),
+        ),
+        for (final f in _favs)
+          ListTile(
+            leading: const Icon(Icons.star, color: Colors.amber),
+            title: Text(f.name),
+            subtitle: Text('Parada ${f.id}'),
+            onTap: () => _loadArrivals(f.id,
+                row: {'stop_id': f.id, 'name': f.name, 'lat': f.lat, 'lon': f.lon}),
+          ),
+      ],
     );
   }
 
@@ -270,6 +335,12 @@ class _StopSearchPageState extends State<StopSearchPage> {
                 label: const Text('Paradas'),
               ),
               const Spacer(),
+              IconButton(
+                tooltip: _selectedIsFav ? 'Quitar de favoritas' : 'Añadir a favoritas',
+                onPressed: _toggleFavorite,
+                icon: Icon(_selectedIsFav ? Icons.star : Icons.star_border,
+                    color: _selectedIsFav ? Colors.amber : null),
+              ),
               TextButton.icon(
                 onPressed: () => chooseLineForAlarm(context, _db, _selected!),
                 icon: const Icon(Icons.notifications_active),

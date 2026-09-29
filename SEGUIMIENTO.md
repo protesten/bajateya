@@ -28,7 +28,8 @@ Leyenda: ✅ hecho · 🚧 en curso · ⬜ pendiente
 | **Fiabilidad (guía batería/OEM) + reanudación** | ✅ (APK ok) |
 | **APK de prueba (release universal) + guía** | ✅ v0.1.1 |
 | **Correcciones del feedback (v0.1.1)** | ✅ (APK ok) |
-| Favoritos locales | ⬜ |
+| **Buscador en selector de líneas + Favoritos (v0.1.2)** | ✅ (APK ok) |
+| Backlog de ideas (senderos, ¿cuándo salgo?, etc.) | 📋 docs/09 |
 | Planificador de rutas | ⬜ |
 | Multidioma | ⬜ |
 | Publicación / clave idApp definitiva | ⬜ |
@@ -298,6 +299,21 @@ Leyenda: ✅ hecho · 🚧 en curso · ⬜ pendiente
   notificación** del servicio (`onNotificationButtonPressed`). Antes no había forma de
   pararla desde la app.
 - **Verificado:** `flutter analyze` limpio, APK v0.1.1 compilado y entregado.
+
+### 18. Buscador en el selector de líneas + Favoritos locales (v0.1.2) ✅
+- **Buscador dentro del selector de líneas** (`lib/ui/line_chooser.dart`): hoja
+  arrastrable con filtro por número/destino cuando la parada tiene muchas líneas
+  (p. ej. Intercambiadores). Resuelve la mala UX de listas de 80+ líneas.
+- **Favoritos de paradas** (`lib/data/favorites.dart`): guardado local en
+  `SharedPreferences`, **sin registro**. Estrella ⭐ en la vista de llegadas y en
+  la hoja del mapa para marcar/quitar. En la pantalla de inicio, con la búsqueda
+  vacía, se muestran las **paradas favoritas** (toque → llegadas). Incluye
+  exportar/importar (JSON) en el servicio (UI de import/export pendiente).
+- **Verificado:** `flutter analyze` limpio, 6 tests pasan, APK v0.1.2 compilado.
+- **Backlog de ideas** (varias IA sobre datos.tenerife.es) recogido en
+  `docs/09-ideas-ampliacion.md`: "¿Cuándo salgo?", senderos + última guagua,
+  ocupación de zonas recreativas, observatorio de puntualidad, Wear OS,
+  Live Activities, asistente por voz, MCP, monetización B2B, etc.
 
 ---
 

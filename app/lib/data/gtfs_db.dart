@@ -50,6 +50,15 @@ class GtfsDb {
     ''', [minLat, maxLat, minLon, maxLon, limit]);
   }
 
+  /// Una parada por su id.
+  Future<Map<String, Object?>?> stopById(int stopId) async {
+    final db = await _open();
+    final r = await db.rawQuery(
+        'SELECT stop_id, name, lat, lon FROM stops WHERE stop_id = ? LIMIT 1',
+        [stopId]);
+    return r.isEmpty ? null : r.first;
+  }
+
   /// Busca paradas por nombre o por **código** (si el texto es numérico).
   Future<List<Map<String, Object?>>> searchStops(String q,
       {int limit = 30}) async {

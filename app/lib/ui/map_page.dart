@@ -3,6 +3,7 @@ import 'package:flutter_map/flutter_map.dart';
 import 'package:geolocator/geolocator.dart';
 import 'package:latlong2/latlong.dart';
 
+import '../data/favorites.dart';
 import '../data/gtfs_db.dart';
 import 'alarm_entry.dart';
 
@@ -154,6 +155,27 @@ class _MapPageState extends State<MapPage> {
               onTap: () {
                 Navigator.of(context).pop();
                 chooseLineForAlarm(context, widget.db, id);
+              },
+            ),
+            FutureBuilder<bool>(
+              future: Favorites.isFavorite(id),
+              builder: (_, snap) {
+                final fav = snap.data ?? false;
+                return ListTile(
+                  leading: Icon(fav ? Icons.star : Icons.star_border,
+                      color: fav ? Colors.amber : null),
+                  title: Text(fav ? 'Quitar de favoritas' : 'Añadir a favoritas'),
+                  onTap: () async {
+                    final nav = Navigator.of(context);
+                    await Favorites.toggle(FavStop(
+                      id,
+                      s['name'] as String,
+                      (s['lat'] as num).toDouble(),
+                      (s['lon'] as num).toDouble(),
+                    ));
+                    nav.pop();
+                  },
+                );
               },
             ),
           ],
