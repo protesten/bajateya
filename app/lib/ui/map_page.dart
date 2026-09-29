@@ -11,7 +11,8 @@ import 'alarm_entry.dart';
 /// usuario. Al tocar una parada, ofrece crear una alarma de bajada.
 class MapPage extends StatefulWidget {
   final GtfsDb db;
-  const MapPage({super.key, required this.db});
+  final void Function(int stopId, {Map<String, Object?>? row})? onOpenStop;
+  const MapPage({super.key, required this.db, this.onOpenStop});
 
   @override
   State<MapPage> createState() => _MapPageState();
@@ -149,6 +150,15 @@ class _MapPageState extends State<MapPage> {
               subtitle: Text('Parada $id'),
             ),
             const Divider(height: 1),
+            if (widget.onOpenStop != null)
+              ListTile(
+                leading: const Icon(Icons.access_time),
+                title: const Text('Ver llegadas y horario'),
+                onTap: () {
+                  Navigator.of(context).pop();
+                  widget.onOpenStop!(id, row: s);
+                },
+              ),
             ListTile(
               leading: const Icon(Icons.notifications_active),
               title: const Text('Crear alarma de bajada'),

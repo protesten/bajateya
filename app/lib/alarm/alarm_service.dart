@@ -1,6 +1,6 @@
 import 'dart:async';
-import 'dart:typed_data';
 
+import 'package:flutter/foundation.dart';
 import 'package:flutter_foreground_task/flutter_foreground_task.dart';
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 import 'package:geolocator/geolocator.dart';
@@ -21,6 +21,8 @@ void alarmServiceCallback() {
 
 /// API pública para iniciar/parar el seguimiento de la alarma de bajada.
 class AlarmService {
+  /// Se incrementa al iniciar/parar/reanudar un viaje (para refrescar la UI).
+  static final ValueNotifier<int> tripRevision = ValueNotifier<int>(0);
   /// Inicializa canales de notificación y opciones del servicio. Llamar 1 vez.
   static Future<void> init() async {
     FlutterForegroundTask.init(
@@ -78,11 +80,13 @@ class AlarmService {
       ],
       callback: alarmServiceCallback,
     );
+    tripRevision.value++;
   }
 
   static Future<void> stop() async {
     await FlutterForegroundTask.removeData(key: _kActiveKey);
     await FlutterForegroundTask.stopService();
+    tripRevision.value++;
   }
 
   /// Silencia el sonido/vibración del aviso sin detener el seguimiento.

@@ -2,6 +2,13 @@
 
 Versiones de **prueba** (beta). App no oficial de guaguas de Tenerife.
 
+## v0.1.9
+- **Menú inferior**: Inicio · Favoritas · Mapa · Ajustes, para moverte por la app
+  más fácil.
+- Cada parada abre su **propia pantalla** (llegadas, horario, última guagua, alarma
+  y favorita). El aviso de «Alarma activa» se ve desde cualquier pestaña.
+- En Favoritas puedes **deslizar** una parada para quitarla.
+
 ## v0.1.8
 - **Ayuda dentro de la app** (icono «?» arriba, en Ajustes y en el inicio):
   explica qué es, cómo se usa y cómo resolver problemas, sin salir de la app.

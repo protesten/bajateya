@@ -1,5 +1,6 @@
 import 'dart:convert';
 
+import 'package:flutter/foundation.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 /// Una parada favorita guardada en el dispositivo (sin registro).
@@ -23,6 +24,10 @@ class FavStop {
 /// Gestión de paradas favoritas en `SharedPreferences`. Local, sin cuenta.
 class Favorites {
   static const _key = 'fav_stops';
+
+  /// Se incrementa cada vez que cambian los favoritos (para refrescar la UI).
+  static final ValueNotifier<int> revision = ValueNotifier<int>(0);
+  static void _bump() => revision.value++;
 
   static Future<List<FavStop>> list() async {
     final prefs = await SharedPreferences.getInstance();
@@ -52,11 +57,13 @@ class Favorites {
     if (stops.any((f) => f.id == stop.id)) return;
     stops.add(stop);
     await _save(stops);
+    _bump();
   }
 
   static Future<void> remove(int stopId) async {
     final stops = await list()..removeWhere((f) => f.id == stopId);
     await _save(stops);
+    _bump();
   }
 
   /// Alterna el favorito y devuelve el nuevo estado (true = ahora es favorita).
@@ -89,6 +96,7 @@ class Favorites {
       }
     }
     await _save(current);
+    if (added > 0) _bump();
     return added;
   }
 }
