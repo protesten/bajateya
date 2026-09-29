@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:typed_data';
 
 import 'package:flutter_foreground_task/flutter_foreground_task.dart';
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
@@ -84,6 +85,9 @@ class AlarmService {
     await FlutterForegroundTask.stopService();
   }
 
+  /// Silencia el sonido/vibración del aviso sin detener el seguimiento.
+  static void silence() => FlutterForegroundTask.sendDataToTask('silence');
+
   static Future<bool> get isRunning => FlutterForegroundTask.isRunningService;
 
   /// ¿Hay un viaje marcado como activo (que quizá el sistema haya interrumpido)?
@@ -133,10 +137,15 @@ class _TripTaskHandler extends TaskHandler {
 
   @override
   Future<void> onStart(DateTime timestamp, TaskStarter starter) async {
-    await _notif.initialize(const InitializationSettings(
-      android: AndroidInitializationSettings('@mipmap/ic_launcher'),
-      iOS: DarwinInitializationSettings(),
-    ));
+    await _notif.initialize(
+      const InitializationSettings(
+        android: AndroidInitializationSettings('@mipmap/ic_launcher'),
+        iOS: DarwinInitializationSettings(),
+      ),
+      onDidReceiveNotificationResponse: (resp) {
+        if (resp.actionId == 'ack') _silenceRing();
+      },
+    );
 
     final json = await FlutterForegroundTask.getData<String>(key: _kPlanKey);
     if (json == null) return;
@@ -250,18 +259,20 @@ class _TripTaskHandler extends TaskHandler {
   }
 
   Future<void> _ring(TripPlan plan) async {
-    // Vibración marcada.
+    // Vibración larga y marcada.
     if (await Vibration.hasVibrator()) {
-      Vibration.vibrate(pattern: const [0, 600, 300, 600, 300, 900]);
+      Vibration.vibrate(
+          pattern: const [0, 600, 300, 600, 300, 600, 300, 900], repeat: -1);
     }
-    // Notificación de aviso, con sonido y prioridad alta.
+    // Aviso con sonido de ALARMA propio, que suena aunque el móvil esté en
+    // silencio (canal de alarma) y en bucle insistente hasta que se pare.
     await _notif.show(
       _kRingNotificationId,
       '¡Prepárate para bajar!',
       'Tu parada (${plan.destination.name}) está muy cerca.',
-      const NotificationDetails(
+      NotificationDetails(
         android: AndroidNotificationDetails(
-          'bajate_aqui_alarm',
+          'bajate_aqui_alarm_v2',
           'Alarma de bajada',
           channelDescription: 'Aviso cuando te acercas a tu parada de destino.',
           importance: Importance.max,
@@ -269,15 +280,30 @@ class _TripTaskHandler extends TaskHandler {
           category: AndroidNotificationCategory.alarm,
           fullScreenIntent: true,
           playSound: true,
+          sound: const RawResourceAndroidNotificationSound('alarm'),
+          audioAttributesUsage: AudioAttributesUsage.alarm,
+          // FLAG_INSISTENT: repite el sonido hasta que el usuario interactúe.
+          additionalFlags: Int32List.fromList(<int>[4]),
+          actions: const [
+            AndroidNotificationAction('ack', 'Ya lo tengo',
+                showsUserInterface: false, cancelNotification: true),
+          ],
         ),
-        iOS: DarwinNotificationDetails(
+        iOS: const DarwinNotificationDetails(
           presentAlert: true,
           presentSound: true,
-          interruptionLevel: InterruptionLevel.timeSensitive,
+          sound: 'alarm.wav',
+          interruptionLevel: InterruptionLevel.critical,
         ),
       ),
     );
     FlutterForegroundTask.sendDataToMain({'type': 'ring'});
+  }
+
+  /// Detiene el sonido/vibración insistentes del aviso (al pulsar "Ya lo tengo").
+  Future<void> _silenceRing() async {
+    Vibration.cancel();
+    await _notif.cancel(_kRingNotificationId);
   }
 
   // El GPS marca el ritmo; no usamos eventos periódicos.
@@ -288,6 +314,7 @@ class _TripTaskHandler extends TaskHandler {
   Future<void> onDestroy(DateTime timestamp) async {
     _staleTimer?.cancel();
     await _gps?.cancel();
+    await _silenceRing();
   }
 
   @override
@@ -295,6 +322,8 @@ class _TripTaskHandler extends TaskHandler {
     if (data == 'stop') {
       _staleTimer?.cancel();
       _gps?.cancel();
+    } else if (data == 'silence') {
+      _silenceRing();
     }
   }
 
@@ -303,6 +332,7 @@ class _TripTaskHandler extends TaskHandler {
     if (id == 'stop') {
       _staleTimer?.cancel();
       _gps?.cancel();
+      _silenceRing();
       FlutterForegroundTask.removeData(key: _kActiveKey);
       FlutterForegroundTask.stopService();
     }

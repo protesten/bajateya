@@ -100,17 +100,34 @@ class _TrackingPageState extends State<TrackingPage> {
                   if (_ringing || _arrived)
                     Card(
                       color: Theme.of(context).colorScheme.errorContainer,
-                      child: const Padding(
-                        padding: EdgeInsets.all(20),
-                        child: Row(children: [
-                          Icon(Icons.notifications_active, size: 32),
-                          SizedBox(width: 12),
-                          Expanded(
-                            child: Text('¡Prepárate para bajar!',
-                                style: TextStyle(
-                                    fontSize: 20, fontWeight: FontWeight.bold)),
-                          ),
-                        ]),
+                      child: Padding(
+                        padding: const EdgeInsets.all(16),
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            const Row(children: [
+                              Icon(Icons.notifications_active, size: 32),
+                              SizedBox(width: 12),
+                              Expanded(
+                                child: Text('¡Prepárate para bajar!',
+                                    style: TextStyle(
+                                        fontSize: 20, fontWeight: FontWeight.bold)),
+                              ),
+                            ]),
+                            const SizedBox(height: 8),
+                            Align(
+                              alignment: Alignment.centerRight,
+                              child: TextButton.icon(
+                                onPressed: () {
+                                  AlarmService.silence();
+                                  setState(() => _ringing = false);
+                                },
+                                icon: const Icon(Icons.volume_off),
+                                label: const Text('Silenciar'),
+                              ),
+                            ),
+                          ],
+                        ),
                       ),
                     ),
                   if (_offRoute && !_ringing && !_arrived)

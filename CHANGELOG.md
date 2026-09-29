@@ -2,6 +2,11 @@
 
 Versiones de **prueba** (beta). App no oficial de guaguas de Tenerife.
 
+## v0.1.7
+- La **alarma suena aunque el móvil esté en silencio** (usa el canal de alarma),
+  con un **tono propio** y en **bucle** hasta que pulses «Silenciar» o «Ya lo tengo».
+  Vibración continua. Puede saltar a **pantalla completa**.
+
 ## v0.1.6
 - Nuevo inicio que explica las funciones (llegadas, horario, última guagua,
   alarma, favoritas) y muestra tus paradas favoritas.

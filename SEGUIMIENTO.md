@@ -32,6 +32,8 @@ Leyenda: ✅ hecho · 🚧 en curso · ⬜ pendiente
 | **Motor de horarios GTFS + pestaña Horario (v0.1.3)** | ✅ (APK ok) |
 | **Avisar a alguien + Última guagua (v0.1.4)** | ✅ (APK ok) |
 | **Fix botones seguimiento + Guía/Changelog (v0.1.5)** | ✅ (APK ok) |
+| **Fix borrado búsqueda + inicio explicativo (v0.1.6)** | ✅ (APK ok) |
+| **Sonido de alarma propio (silencio + bucle) (v0.1.7)** | ✅ (APK ok) |
 | Backlog de ideas (senderos, ¿cuándo salgo?) | 📋 docs/09 |
 | Planificador de rutas | ⬜ |
 | Multidioma | ⬜ |
@@ -358,6 +360,26 @@ Leyenda: ✅ hecho · 🚧 en curso · ⬜ pendiente
   *(Privada: hay que compartirla desde el menú Share de la página para que otros
   la abran.)*
 - **Verificado:** `flutter analyze` limpio, APK v0.1.5 compilado.
+
+### 22. Sonido de alarma propio y robusto (v0.1.7) ✅
+- **Tono propio** generado (`android/app/src/main/res/raw/alarm.wav`, ~1,2 s,
+  loopable, patrón despertador). En el APK aparece como `res/_f.wav` (renombrado
+  por el empaquetado; verificado por tamaño).
+- **Suena aunque el móvil esté en silencio**: la notificación de aviso usa el
+  **canal de alarma** (`audioAttributesUsage: alarm`) y **FLAG_INSISTENT** para
+  repetir el sonido hasta que el usuario interactúe. `fullScreenIntent` activo.
+  Canal nuevo (`bajate_aqui_alarm_v2`) para que el sonido se aplique también al
+  actualizar (Android no cambia el sonido de un canal ya existente).
+- **Vibración continua** (`repeat`) hasta silenciar.
+- **Silenciar**: acción "Ya lo tengo" en la notificación, botón "Silenciar" en la
+  pantalla de seguimiento (`AlarmService.silence()` → `sendDataToTask`), y se
+  limpia al detener/llegar (`_silenceRing`).
+- iOS: sonido `alarm.wav` + `InterruptionLevel.critical` preparados (requiere
+  bundlear el sonido en el proyecto iOS y el entitlement de alertas críticas
+  cuando se compile para iOS).
+- **Verificado:** `flutter analyze` limpio, APK v0.1.7 compilado con el recurso.
+- **Nota para testers:** conviene **reinstalar** para recrear el canal con el nuevo
+  sonido (el cambio de id lo cubre, pero reinstalar lo garantiza).
 
 ---
 
